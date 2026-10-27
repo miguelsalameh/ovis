@@ -19,7 +19,7 @@ import { DeviceStore, handleDeviceRequest, type DeviceMatch } from "./devices.ts
 import { handlePreferencesRequest, PreferenceStore } from "./preferences.ts";
 import { handleSeenRequest, SeenStore } from "./seen.ts";
 import { remoteAccess, TailnetIdentitySource } from "./tailscale.ts";
-import { badRequest, errorResponse, jsonResponse, setRequestRoute } from "./http.ts";
+import { badRequest, errorResponse, jsonResponse, readJsonObject, setRequestRoute } from "./http.ts";
 import { requestOrigin, serveStatic } from "./static.ts";
 import { compressResponse } from "./compress.ts";
 import { handleTasksRequest } from "./tasks-routes.ts";
@@ -517,6 +517,30 @@ export function createServer(
 
       const filesResponse = await handleFileRequest(request, url, pathname, { bridgeAuthorized, requestHost, forwarded, client, access });
       if (filesResponse) return filesResponse;
+
+      if (pathname === "/api/web-panel") {
+        setRequestRoute(pathname);
+        if (request.method !== "POST") return badRequest("method_not_allowed", "use POST");
+        const payload = await readJsonObject<{ url?: unknown; workspace_id?: unknown }>(request);
+        if (payload instanceof Response) return payload;
+        if (typeof payload.url !== "string" || !/^https?:\/\//i.test(payload.url)) return badRequest("invalid_url", "url must be an http(s) address");
+        if (payload.workspace_id !== undefined && (typeof payload.workspace_id !== "string" || payload.workspace_id === "")) return badRequest("invalid_workspace_id", "workspace_id must be a non-empty string");
+        broadcastAll({ type: "open-web-page", url: payload.url, ...(payload.workspace_id === undefined ? {} : { workspace_id: payload.workspace_id }) });
+        return jsonResponse({ ok: true });
+      }
+
+      if (pathname === "/api/open-diff") {
+        setRequestRoute(pathname);
+        if (request.method !== "POST") return badRequest("method_not_allowed", "use POST");
+        const payload = await readJsonObject<{ pane_id?: unknown; directory?: unknown; path?: unknown }>(request);
+        if (payload instanceof Response) return payload;
+        const { pane_id, directory, path } = payload;
+        if (typeof pane_id !== "string" || pane_id === "" || typeof directory !== "string" || !directory.startsWith("/") || typeof path !== "string" || path === "") {
+          return badRequest("invalid_body", "pane_id, an absolute directory and a path are required");
+        }
+        broadcastAll({ type: "open-repo-diff", pane_id, directory, path });
+        return jsonResponse({ ok: true });
+      }
 
       const workspaceResponse = await handleWorkspaceRequest(request, url, pathname, bunServer, broadcastAll, queueFirstMessage, () => {
         // the receipt first, then the roster read that can show it: not waited for, and its failure changes no answer

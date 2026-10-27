@@ -214,6 +214,8 @@ export function useRosterEvents({ locked, receivePreferencesRef, snapshotRequest
           return changed ? next : list;
         });
       }
+      if (message.type === "open-repo-diff" && machine.id === "local") window.dispatchEvent(new CustomEvent("ovis-open-repo-diff", { detail: message }));
+      if (message.type === "open-web-page" && machine.id === "local") window.dispatchEvent(new CustomEvent("ovis-open-web-page", { detail: { url: message.url, workspaceId: message.workspace_id } }));
       if (message.type === "pane-exited") {
         if (machine.id === "local") window.dispatchEvent(new Event("herdr-usage-changed"));
         onPaneExited(machine, message, takeNotificationTargetRef);
