@@ -35,6 +35,7 @@ import { openPresentation } from "./lib/filePresentation.ts";
 import { MachineDialog } from "./components/MachineDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./components/RowMenu.tsx";
 import { headerCrumb, showsChat } from "./lib/headerCrumb.ts";
+import { ProjectDot } from "./components/ProjectDot.tsx";
 import { paneStorageId } from "../shared/machines.ts";
 import { takeAuthTokenFromUrl } from "./lib/authLink.ts";
 import { rosterPanes } from "./lib/dagPane.ts";
@@ -608,7 +609,7 @@ export function App() {
             <div className="context-sub">
               {/* one PC needs no name: the sidebar leaves it out too, and More still says it */}
               {crumb.showMachine && <><span className="machine-context-name">{crumb.machine}</span><span className="context-sep" aria-hidden="true">›</span></>}
-              <span>{crumb.workspace}</span>
+              <span className="context-workspace">{selectedWorkspace && <ProjectDot machineId={selectedMachineId} workspace={selectedWorkspace} />}{crumb.workspace}</span>
               {crumb.folder !== null && (
                 <>
                   <span className="context-sep" aria-hidden="true">›</span>

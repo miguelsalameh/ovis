@@ -289,3 +289,8 @@
   .agent-row:enabled:active { opacity: 1; }
   .agent-item:has(> .agent-row:enabled:active) { background: var(--side-hover); }
 }
+
+/* the agent's project color (lib/projectColors.ts), as its workspace row draws it */
+.agent-item.has-project-color {
+  box-shadow: inset calc(3 * var(--hairline)) 0 0 var(--project-color);
+}

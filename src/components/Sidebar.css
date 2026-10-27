@@ -880,3 +880,8 @@ button.sidebar-section-label:focus-visible { outline-offset: calc(var(--ring-off
 @media (pointer: coarse) {
   .sidebar-inactive-toggle { min-height: var(--touch-target); }
 }
+
+/* the project's color (lib/projectColors.ts) as a stripe on the row's leading edge */
+.workspace-group.has-project-color > .workspace-header {
+  box-shadow: inset calc(3 * var(--hairline)) 0 0 var(--project-color);
+}
