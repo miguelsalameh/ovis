@@ -4,7 +4,7 @@
   justify-content: flex-start;
   gap: 0;
   font-family: var(--font-mono);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-chat);
 }
 
 .claude-footer-row {
