@@ -1386,8 +1386,9 @@ export function Composer({
             <strong className="visually-hidden">{t(composerStatusWord(shownStatus))}</strong>
             {/* the mark, the model, the level and the context ring as one quiet pill. It only shows: no role,
                 no focus, nothing to press but the ring inside it. A pane that names no model draws no pill
-                (.is-bare): the mark, a level if it has one, and the ring stand in the row as they are */}
-            <span className={`composer-pill${metadata?.model ? "" : " is-bare"}`}>
+                (.is-bare): the mark, a level if it has one, and the ring stand in the row as they are. Under
+                Claude Code's own status line it is left out: that line names the model and the context already */}
+            {claudeFooter === null && <span className={`composer-pill${metadata?.model ? "" : " is-bare"}`}>
               {agent && <AgentMark agent={agent} size={14} />}
               {modelShown && <span className="composer-model-info" aria-label={t("Model and reasoning")}>
                 {/* a name only for an id modelLabel can name for certain; any other id is drawn as received, in the identifier face */}
@@ -1411,7 +1412,7 @@ export function Composer({
                 <span aria-hidden="true">{usageCaption}</span>
                 <span className="visually-hidden">{usageAccessible}</span>
               </span>}
-            </span>
+            </span>}
             {/* the chip is a button in the left controls; its count is still said here, where a change is announced */}
             {backgroundTasks > 0 && <span className="composer-task-count visually-hidden">{t(backgroundTasks === 1 ? "{n} background task" : "{n} background tasks", { n: backgroundTasks })}</span>}
           </span>
