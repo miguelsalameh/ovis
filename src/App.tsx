@@ -1,5 +1,5 @@
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Ellipsis, FolderOpen, Link, Menu, MessageSquare, PanelLeft, Search, SquareTerminal, X } from "lucide-react";
+import { Bell, Ellipsis, FolderOpen, GitCompareArrows, Link, Menu, MessageSquare, PanelLeft, Search, SquareTerminal, X } from "lucide-react";
 
 import type { HerdrPane } from "../shared/protocol.ts";
 import { authenticate, createTab, moveTabToWorkspace, pairDevice, shareSeen, signOut, splitPane, swapPaneWith, zoomPane } from "./lib/api.ts";
@@ -32,6 +32,7 @@ import { SidebarResizer } from "./components/SidebarResizer.tsx";
 import { useSidebarActivityState } from "./lib/sidebarActivity.tsx";
 import { FilePanelResizer } from "./components/FilePanelResizer.tsx";
 import { openPresentation } from "./lib/filePresentation.ts";
+import { changesHref, paneChanges } from "./lib/changesPage.ts";
 import { MachineDialog } from "./components/MachineDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./components/RowMenu.tsx";
 import { headerCrumb, showsChat } from "./lib/headerCrumb.ts";
@@ -55,6 +56,7 @@ import { FilesDialog } from "./components/FilesDialog.tsx";
 import { folderQueryFor } from "./lib/paletteFolders.ts";
 import { FileViewer } from "./components/FileViewer.tsx";
 import { WebPanel } from "./components/WebPanel.tsx";
+import { ChangesView } from "./components/ChangesView.tsx";
 import { WebPanelContext } from "./lib/webPanel.ts";
 import { RepoDiffViewer } from "./components/RepoDiffViewer.tsx";
 import { OpenFileContext } from "./lib/filePaths.ts";
@@ -192,7 +194,7 @@ export function App() {
   const closeMore = useCallback(() => setMore(null), []);
   // the pane canvas's actions, for the phone's tab menu (TabStrip)
   const paneActionsRef = useRef<((target: HerdrPane) => RowMenuItem[]) | null>(null);
-  const { filesOpen, setFilesOpen, viewing, openFile, closeFile, releaseFile, diffViewing, openDiff, closeDiff, releaseDiff, presentation, fileDocked, webPage, setWebPage, openWebPage, reportFileKind, toggleFilePresentation, viewFile } = useFilePanels({ settings, filePanelAvailable, selectedPaneId, selectedMachineId });
+  const { filesOpen, setFilesOpen, viewing, openFile, closeFile, releaseFile, diffViewing, openDiff, closeDiff, releaseDiff, presentation, fileDocked, webPage, setWebPage, openWebPage, changesOpen, openChanges, closeChanges, reportFileKind, toggleFilePresentation, viewFile } = useFilePanels({ settings, filePanelAvailable, selectedPaneId, selectedMachineId });
   const { settingsOpen, setSettingsOpen, settingsLinkPage, setSettingsLinkPage, settingsLinkSection, settingsPage, settingsSection, setSettingsSection, closeSettings, onSettingsPage } = useSettingsDialog(initialLink);
   const { newSessionOpen, setNewSessionOpen, newPrefill, setNewPrefill, newFields, setNewFields, pendingCreate, newTab, setNewTab, sessionHistory, setSessionHistory } = useNewSessionState({ initialLink });
   const { connected, setConnected, connectedBefore, setConnectedBefore, paneLost, outputStopped, setOutputStopped } = useConnectionChip();
@@ -287,6 +289,8 @@ export function App() {
 
 
   const { selectedPane } = useSelectedPane({ snapshot, selectedPaneId });
+  // the Changes panel takes the file panel's place while no docked file or web page holds it
+  const changesShown = changesOpen && filePanelAvailable && selectedPane !== null && !(viewing !== null && fileDocked) && webPage === null;
   useScreenWakeLock(settings.keepScreenOn && locked === false && selectedPane !== null);
   const { selectedWorkspace, presentedPaneId } = useSelectedLayout({ selectedPane, snapshot, drawerOpen, selectedMachineId, selectedPaneId, setSelectedPaneId, setAutoSelected });
   const targetHerdr = selectedMachineId === "local" ? health?.herdr : selectedMachine?.herdr;
@@ -640,6 +644,16 @@ export function App() {
             <button type="button" className="icon-button header-files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
               <FolderOpen />
             </button>
+            {/* beside the pane where the panel fits; in a tab of its own with ⌘/Ctrl or Shift, or where it does not */}
+            <button type="button" className="icon-button header-files-button" aria-label={t("Changes")} aria-pressed={changesShown}
+              title={filePanelAvailable ? t("Changes beside the pane (⌘-click: in a new tab)") : t("Changes in a new tab")}
+              onClick={(event) => {
+                if (!filePanelAvailable || event.metaKey || event.ctrlKey || event.shiftKey) window.open(changesHref(paneChanges(selectedMachineId, selectedPane)), "_blank", "noopener");
+                else if (changesShown) closeChanges();
+                else openChanges();
+              }}>
+              <GitCompareArrows />
+            </button>
           </>
         )}
         <div className="header-meta">
@@ -873,6 +887,8 @@ export function App() {
         {viewing !== null && fileDocked && <MachineContext.Provider value={viewing.machineId}>
           <FileViewer key={viewing.path} docked panelStart={<FilePanelResizer width={filePanelWidth} onResize={setFilePanelWidth} />} path={viewing.path} paneId={viewing.paneId} onClose={closeFile} onOpen={(path) => openFile({ ...viewing, path, presentation })} onKind={reportFileKind} onTogglePresentation={toggleFilePresentation} keyboardActive={!settingsOpen} />
         </MachineContext.Provider>}
+        {changesShown && selectedPane && <ChangesView target={paneChanges(selectedMachineId, selectedPane)} panel={{ panelStart: <FilePanelResizer width={filePanelWidth} onResize={setFilePanelWidth} />, onClose: closeChanges }}
+          onOpenFile={(path) => openFile({ path, paneId: selectedPane.pane_id, machineId: selectedMachineId, presentation: "popup" })} keyboardActive={!settingsOpen && viewing === null && diffViewing === null} />}
         {webPage !== null && filePanelAvailable && !(viewing !== null && fileDocked) &&
           <WebPanel key={webPage} url={webPage} onClose={() => setWebPage(null)} panelStart={<FilePanelResizer width={filePanelWidth} onResize={setFilePanelWidth} />} />}
       </div>

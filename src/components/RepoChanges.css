@@ -202,6 +202,13 @@
   color: var(--text-strong);
 }
 
+/* the file whose diff is shown beside the list (the Changes panel) */
+.repo-change[aria-current="true"] {
+  background: var(--bg-hover);
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+
 /* a folder's fold, in the cell a file's status chip takes, so its glyph lines up with the files' */
 .repo-change-caret {
   flex: none;

@@ -39,6 +39,21 @@ export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, se
     setWebPage(url);
     return true;
   }, [settings.webLinks, viewing, fileDocked, closeFile]);
+  // the selected pane's Changes beside it, in the file panel's place (ChangesView): a file docked
+  // there or a web page takes the place back, as one replaces the other
+  const [changesOpen, setChangesOpen] = useState(false);
+  useEffect(() => {
+    if (viewing !== null && fileDocked) setChangesOpen(false);
+  }, [viewing, fileDocked]);
+  useEffect(() => {
+    if (webPage !== null) setChangesOpen(false);
+  }, [webPage]);
+  const openChanges = useCallback(() => {
+    if (viewing !== null && fileDocked) closeFile();
+    setWebPage(null);
+    setChangesOpen(true);
+  }, [viewing, fileDocked, closeFile]);
+  const closeChanges = useCallback(() => setChangesOpen(false), []);
   // the panel is no dialog, so no trap gives the focus back when it closes: what opened the file
   // (a link in the chat, a row of Files) gets it, as it does from the popup
   useFocusReturn(viewing !== null && fileDocked);
@@ -75,5 +90,5 @@ export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, se
     if (filePanelAvailable && openPresentation(path, settings.fileOpen) === "panel") setFilesOpen(false);
     openFile({ path, paneId: selectedPaneId, machineId: selectedMachineId });
   }, [openFile, selectedPaneId, selectedMachineId, filePanelAvailable, settings.fileOpen]);
-  return { filesOpen, setFilesOpen, viewing, openFile, closeFile, setPresentation, releaseFile, diffViewing, openDiff, closeDiff, releaseDiff, presentation, fileDocked, webPage, setWebPage, openWebPage, collapsing, presentFile, reportFileKind, toggleFilePresentation, viewFile };
+  return { filesOpen, setFilesOpen, viewing, openFile, closeFile, setPresentation, releaseFile, diffViewing, openDiff, closeDiff, releaseDiff, presentation, fileDocked, webPage, setWebPage, openWebPage, changesOpen, openChanges, closeChanges, collapsing, presentFile, reportFileKind, toggleFilePresentation, viewFile };
 }

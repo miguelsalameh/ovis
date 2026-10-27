@@ -30,6 +30,9 @@ export interface RepoDiffViewerProps {
   onOpenFile: (path: string) => void;
   /** a file preview or Settings above it takes Escape */
   keyboardActive?: boolean;
+  /** beside the Changes list (ChangesView): a part of that panel or page, not a dialog over the app,
+   *  and its keys (Find, Escape) only while the focus is in it */
+  docked?: boolean;
 }
 
 /** `stale`: a branch patch answered for another identity than the list's, which is never drawn as this one */
@@ -88,11 +91,11 @@ function DiffSkeleton({ label }: { label: string }) {
  * (their places kept while the patch is on its way), the file itself a tap away in the file viewer,
  * and the patch copied as git printed it, or the file's path on its own.
  */
-export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = true }: RepoDiffViewerProps) {
+export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = true, docked = false }: RepoDiffViewerProps) {
   const t = useT();
   const { settings, update, resolvedEntry } = useSettings();
   const { fetchRepoDiffFile } = useMachineApi();
-  const surface = useFocusTrap<HTMLElement>(true);
+  const surface = useFocusTrap<HTMLElement>(!docked);
   const narrow = useMediaQuery(SHEET_QUERY);
   const [load, setLoad] = useState<Load>(PENDING);
   const [folded, setFolded] = useState(false);
@@ -110,7 +113,7 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
   const findOpener = useRef<HTMLElement | null>(null);
   const findingRef = useRef(finding);
   findingRef.current = finding;
-  useSheetSwipe(surface, onClose);
+  useSheetSwipe(surface, docked ? null : onClose);
 
   const { paneId, directory, scope, base, head, comparison, path, oldPath } = target;
   useEffect(() => {
@@ -158,6 +161,7 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
     if (!keyboardActive) return;
     const onKey = (event: KeyboardEvent): void => {
       if (event.isComposing || event.keyCode === 229 || nativeModalOver(surface.current)) return;
+      if (docked && !(document.activeElement instanceof Node && surface.current?.contains(document.activeElement) === true)) return;
       // Ctrl/Cmd+F is this dialog's: the browser's own find cannot reach the rows not mounted
       if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
         // a dialog above the viewer (the palette) keeps its own keys while it has the focus
@@ -175,7 +179,7 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, keyboardActive, surface, patchText, openFind, closeFind]);
+  }, [onClose, keyboardActive, docked, surface, patchText, openFind, closeFind]);
 
   useLayoutEffect(() => {
     if (shown === null) return;
@@ -221,9 +225,8 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
     </RenderBoundary>;
   })();
 
-  return (
-    <div className="modal-scrim repo-diff-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal repo-diff-viewer" role="dialog" aria-modal="true" aria-label={t("Changes to {name}", { name: `${stem}${extension}` })} ref={surface} tabIndex={-1}>
+  const viewer = (
+      <section className={docked ? "repo-diff-viewer repo-diff-docked" : "modal repo-diff-viewer"} role={docked ? "region" : "dialog"} aria-modal={docked ? undefined : true} aria-label={t("Changes to {name}", { name: `${stem}${extension}` })} ref={surface} tabIndex={-1}>
         <header className="modal-header repo-diff-header">
           <div className="repo-diff-title">
             <h2 className="modal-title"><span className="repo-diff-stem">{stem}</span>{extension}</h2>
@@ -288,6 +291,7 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
         </form>}
         <div className="repo-diff-body">{body}</div>
       </section>
-    </div>
   );
+  if (docked) return viewer;
+  return <div className="modal-scrim repo-diff-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>{viewer}</div>;
 }
