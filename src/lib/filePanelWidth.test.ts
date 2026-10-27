@@ -5,14 +5,14 @@ import { clampFilePanelWidth, filePanelMaxWidth, FILE_PANEL_MAX_WIDTH, FILE_PANE
 describe("clampFilePanelWidth", () => {
   it("keeps the width between the two limits, in whole pixels", () => {
     expect(clampFilePanelWidth(100)).toBe(FILE_PANEL_MIN_WIDTH);
-    expect(clampFilePanelWidth(9000)).toBe(FILE_PANEL_MAX_WIDTH);
+    expect(clampFilePanelWidth(20000)).toBe(FILE_PANEL_MAX_WIDTH);
     expect(clampFilePanelWidth(433.6)).toBe(434);
   });
 
-  it("never lets the panel take more than 60% of a narrow window", () => {
-    expect(filePanelMaxWidth(1000)).toBe(600);
-    expect(clampFilePanelWidth(800, 1000)).toBe(600);
-    expect(filePanelMaxWidth(2000)).toBe(FILE_PANEL_MAX_WIDTH);
+  it("never lets the panel take more than 85% of the window", () => {
+    expect(filePanelMaxWidth(4000)).toBe(3400);
+    expect(clampFilePanelWidth(5000, 4000)).toBe(3400);
+    expect(filePanelMaxWidth(20000)).toBe(FILE_PANEL_MAX_WIDTH);
     expect(clampFilePanelWidth(800, 400)).toBe(80);
   });
 
@@ -22,7 +22,7 @@ describe("clampFilePanelWidth", () => {
     expect(clampFilePanelWidth(900, 980, 490)).toBe(170);
     expect(clampFilePanelWidth(320, 1280, 520)).toBe(320);
     expect(filePanelMaxWidth(1280, 520)).toBe(440);
-    expect(filePanelMaxWidth(980, 0)).toBe(588);
+    expect(filePanelMaxWidth(980, 0)).toBe(660);
     expect(keyedFilePanelWidth(170, "Home", 980, 490)).toBe(170);
     expect(keyedFilePanelWidth(170, "End", 980, 490)).toBe(170);
     expect(keyedFilePanelWidth(170, "ArrowLeft", 980, 490)).toBe(170);
@@ -40,7 +40,7 @@ describe("keyedFilePanelWidth", () => {
 
   it("moves to a limit with Home and End", () => {
     expect(keyedFilePanelWidth(400, "Home")).toBe(FILE_PANEL_MIN_WIDTH);
-    expect(keyedFilePanelWidth(400, "End", 1000)).toBe(600);
+    expect(keyedFilePanelWidth(400, "End", 1000)).toBe(680);
   });
 
   it("leaves every other key alone", () => {
