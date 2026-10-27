@@ -27,3 +27,31 @@ export function formatDiffComment(path: string, rows: readonly DiffFindLine[], c
   const quote = formatTerminalQuote({ label: path, range, text: rows.map((row) => `${MARK[row.kind]}${row.text}`).join("\n") });
   return quote === null ? null : `${quote}\n${said}`;
 }
+
+/** Lines picked in a file, 1-based and inclusive, start <= end. */
+export interface LineSelection { start: number; end: number }
+
+/** The selection after a click on a line's number: a plain click picks it (again, drops it), a shift-click extends the pick from its far end. */
+export function pickLine(current: LineSelection | null, line: number, extend: boolean): LineSelection | null {
+  if (current === null) return { start: line, end: line };
+  if (!extend) return current.start === line && current.end === line ? null : { start: line, end: line };
+  const anchor = line >= current.start ? current.start : current.end;
+  return { start: Math.min(anchor, line), end: Math.max(anchor, line) };
+}
+
+/** A package range (either end first) as a selection. */
+export function selectionOf(range: SelectedLineRange | null): LineSelection | null {
+  return range === null ? null : { start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) };
+}
+
+/** "src/a.ts lines 12-15:", the file's lines as they are, then the comment: null when nothing is selected or said. */
+export function formatFileComment(path: string, lines: readonly string[], selection: LineSelection, comment: string): string | null {
+  const said = comment.trim();
+  if (said === "") return null;
+  // the quote drops blank edges, so the heading's numbers drop them too
+  let { start, end } = selection;
+  while (start <= end && (lines[start - 1] ?? "").trim() === "") start += 1;
+  while (end >= start && (lines[end - 1] ?? "").trim() === "") end -= 1;
+  const quote = formatTerminalQuote({ label: path, range: { start: start - 1, end: end - 1 }, text: lines.slice(start - 1, end).join("\n") });
+  return quote === null ? null : `${quote}\n${said}`;
+}
