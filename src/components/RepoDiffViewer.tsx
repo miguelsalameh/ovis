@@ -1,20 +1,26 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Check, Columns2, Copy, CopySlash, FileText, FoldVertical, Rows3, Search, TriangleAlert, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Columns2, Copy, CopySlash, FileText, FoldVertical, MessageSquarePlus, Rows3, Search, TriangleAlert, X } from "lucide-react";
+import type { SelectedLineRange } from "@pierre/diffs";
 
 import "./FindBar.css";
 import "./RepoDiffViewer.css";
 import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Skeleton } from "./Skeleton.tsx";
 
+import { paneStorageId } from "../../shared/machines.ts";
 import type { RepoDiffFilePatch } from "../../shared/protocol.ts";
 import { ApiError } from "../lib/api.ts";
 import { copyText } from "../lib/clipboard.ts";
+import { MAX_COMPOSER_CHARS } from "../lib/compose.ts";
+import { composerDrafts } from "../lib/composerDraft.ts";
 import { pathParts } from "../lib/filePaths.ts";
 import { canHighlight, languageForPath } from "../lib/highlight.ts";
 import { useT, type Translate } from "../lib/i18n.ts";
 import { useMachineApi } from "../lib/machineContext.tsx";
 import { comparisonChangedWord, comparisonWord, diffColorable, diffErrorMessage, diffStyleFor, repositoryFilePath, sameComparison, statusWord, unavailableMessage, type RepoDiffTarget } from "../lib/repoDiff.ts";
+import { formatDiffComment, selectedDiffLines } from "../lib/repoDiffComment.ts";
 import { DIFF_FIND_MAX_QUERY, diffFindLines, findInDiff, stepMatch, type DiffFindMatch } from "../lib/repoDiffFind.ts";
+import { appendQuote } from "../lib/terminalQuote.ts";
 import { useSettings } from "../lib/settings.ts";
 import { SHEET_QUERY, useSheetSwipe } from "../lib/sheets.ts";
 import { skeletonRows } from "../lib/skeleton.ts";
@@ -110,6 +116,12 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
   const findOpener = useRef<HTMLElement | null>(null);
   const findingRef = useRef(finding);
   findingRef.current = finding;
+  // lines picked by their numbers and a comment on them, added to the pane's message draft
+  const [selection, setSelection] = useState<SelectedLineRange | null>(null);
+  const [comment, setComment] = useState("");
+  const [commentNote, setCommentNote] = useState<string | null>(null);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   useSheetSwipe(surface, onClose);
 
   const { paneId, directory, scope, base, head, comparison, path, oldPath } = target;
@@ -130,7 +142,13 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
   useEffect(() => {
     setQuery("");
     setActiveIndex(null);
+    setSelection(null);
   }, [patchText]);
+  useEffect(() => {
+    if (commentNote === null) return;
+    const timer = window.setTimeout(() => setCommentNote(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [commentNote]);
 
   const openFind = useCallback((): void => {
     const focused = document.activeElement;
@@ -171,11 +189,16 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
       if (event.key !== "Escape") return;
       // Escape closes Find first, the viewer on the next press
       if (findingRef.current) { event.preventDefault(); closeFind(); return; }
+      if (selectionRef.current !== null) { event.preventDefault(); setSelection(null); return; }
       onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, keyboardActive, surface, patchText, openFind, closeFind]);
+  const pickLines = useCallback((range: SelectedLineRange | null) => {
+    setSelection(range);
+    if (range !== null) setCommentNote(null);
+  }, []);
 
   useLayoutEffect(() => {
     if (shown === null) return;
@@ -202,6 +225,22 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
   const activeMatch = current === null ? null : matches[current] ?? null;
   const step = (direction: 1 | -1): void => setActiveIndex(stepMatch(current, matches.length, direction));
   const unfold = useCallback(() => setFolded(false), []);
+  const draftKey = paneId === null ? null : `ovis:composer-draft:${paneStorageId(target.machineId, paneId)}`;
+  const picked = selection === null ? [] : selectedDiffLines(findLines, selection);
+  const pickedNumbers = picked.map((row) => row.newLine ?? row.oldLine ?? 0).filter((n) => n > 0);
+  const pickedLabel = pickedNumbers.length === 0 ? "" : Math.min(...pickedNumbers) === Math.max(...pickedNumbers)
+    ? t("Line {line}", { line: Math.min(...pickedNumbers) }) : t("Lines {start}-{end}", { start: Math.min(...pickedNumbers), end: Math.max(...pickedNumbers) });
+  const addComment = (): void => {
+    if (draftKey === null) return;
+    const block = formatDiffComment(path, picked, comment);
+    if (block === null) return;
+    const next = appendQuote(composerDrafts.read(draftKey).text, block, MAX_COMPOSER_CHARS);
+    if (next === null) { setCommentNote(t("Too long for the message draft")); return; }
+    composerDrafts.set(draftKey, next);
+    setComment("");
+    setSelection(null);
+    setCommentNote(t("Added to the message draft"));
+  };
   const findCount = query === "" ? "" : current !== null ? t("{current} of {total}", { current: current + 1, total: matches.length }) : matches.length === 0 ? t("No matches") : "";
 
   const body = (() => {
@@ -216,7 +255,8 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
     if (unavailable !== null || patch === null) return <p className="repo-diff-note">{unavailable ?? t("No lines changed.")}</p>;
     return <RenderBoundary resetKey={patch} fallback={() => <p className="repo-diff-note" role="alert">{t("This change can't be shown.")}</p>}>
       <Suspense fallback={<DiffSkeleton label={t("Opening…")} />}>
-        <RepoDiff patch={patch} style={style} folded={folded} wrap={settings.wrapCode} theme={resolvedEntry.mode} colored={colored} active={finding ? activeMatch : null} onUnfold={unfold} />
+        <RepoDiff patch={patch} style={style} folded={folded} wrap={settings.wrapCode} theme={resolvedEntry.mode} colored={colored} active={finding ? activeMatch : null} onUnfold={unfold}
+          selection={selection} onSelect={draftKey === null ? undefined : pickLines} />
       </Suspense>
     </RenderBoundary>;
   })();
@@ -286,6 +326,22 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
           </div>
           <p className="find-bar-hint">{patch === null ? t("There is no loaded patch to search.") : t("Searches this loaded patch, including context. Content outside the patch is not searched.")}</p>
         </form>}
+        {selection !== null && picked.length > 0 && <form className="find-bar repo-diff-comment" aria-label={t("Comment on {lines}", { lines: pickedLabel })} onSubmit={(event) => { event.preventDefault(); addComment(); }}>
+          <div className="find-bar-controls">
+            <label className="find-bar-query repo-diff-comment-field">
+              <span className="repo-diff-comment-lines">{pickedLabel}</span>
+              <textarea className="input" rows={2} value={comment} autoFocus placeholder={t("Comment for the agent")} spellCheck
+                onChange={(event) => setComment(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); addComment(); }
+                }} />
+            </label>
+            <button className="btn btn-primary repo-diff-comment-add" type="submit" disabled={comment.trim() === ""} title={t("Add to message (Cmd+Enter)")}><MessageSquarePlus size={16} aria-hidden="true" />{t("Add to message")}</button>
+            <button className="icon-button repo-diff-action" type="button" aria-label={t("Cancel comment")} title={t("Cancel comment")} onClick={() => setSelection(null)}><X size={16} aria-hidden="true" /></button>
+          </div>
+        </form>}
+        {commentNote !== null && <p className="repo-diff-comment-note" role="status">{commentNote}</p>}
         <div className="repo-diff-body">{body}</div>
       </section>
     </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_VIRTUAL_FILE_METRICS, parsePatchFiles, trimPatchContext, type FileDiffMetadata, type VirtualizedFileDiff, type Virtualizer as VirtualizerInstance } from "@pierre/diffs";
+import { DEFAULT_VIRTUAL_FILE_METRICS, parsePatchFiles, trimPatchContext, type FileDiffMetadata, type SelectedLineRange, type VirtualizedFileDiff, type Virtualizer as VirtualizerInstance } from "@pierre/diffs";
 import { FileDiff, useVirtualizer, Virtualizer, type FileDiffOptions } from "@pierre/diffs/react";
 
 import { DiffWorkerPool } from "./DiffWorkerPool.tsx";
@@ -24,6 +24,10 @@ export interface RepoDiffProps {
   active?: DiffMark | null;
   /** the active match is on a line the folded context leaves out: the host shows the context whole */
   onUnfold?: () => void;
+  /** the lines picked to comment on, drawn while no find match is active */
+  selection?: SelectedLineRange | null;
+  /** given, lines can be picked by their numbers (not while a find match is active) */
+  onSelect?: (range: SelectedLineRange | null) => void;
 }
 
 /** A logical line of the patch (an unchanged line is anchored to the new side) and the columns of a match in it. */
@@ -131,7 +135,7 @@ function parseFile(text: string): FileDiffMetadata | null {
  * the virtualizer renders by identity, and its host fills the scroll root so it has a box before
  * the first anchor pass (the contracts VirtualSource measured).
  */
-export default function RepoDiff({ patch, style, folded, wrap, theme, colored, active = null, onUnfold }: RepoDiffProps) {
+export default function RepoDiff({ patch, style, folded, wrap, theme, colored, active = null, onUnfold, selection = null, onSelect }: RepoDiffProps) {
   const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const [lineHeight, setLineHeight] = useState<number | null>(null);
@@ -251,7 +255,8 @@ export default function RepoDiff({ patch, style, folded, wrap, theme, colored, a
     settle();
   }, [activeSide, activeLine, activeStart, activeEnd, style, wrap, theme, folded, paint, settle]);
   useEffect(() => () => { if (typeof CSS !== "undefined" && "highlights" in CSS) CSS.highlights.delete(FIND_HIGHLIGHT); }, []);
-  const selected = useMemo(() => activeSide === null || activeLine === null ? null : { start: activeLine, end: activeLine, side: activeSide === "old" ? "deletions" as const : "additions" as const }, [activeSide, activeLine]);
+  const selected = useMemo(() => activeSide === null || activeLine === null ? selection : { start: activeLine, end: activeLine, side: activeSide === "old" ? "deletions" as const : "additions" as const }, [activeSide, activeLine, selection]);
+  const picking = onSelect !== undefined && activeSide === null;
   const options = useMemo<Options>(() => ({
     disableFileHeader: true,
     diffStyle: style,
@@ -260,11 +265,12 @@ export default function RepoDiff({ patch, style, folded, wrap, theme, colored, a
     theme: SOURCE_THEME,
     themeType: theme,
     tokenizeMaxLength: colored ? VIRTUAL_HIGHLIGHT_LINES : 0,
-    lineHoverHighlight: "disabled",
-    enableLineSelection: false,
+    lineHoverHighlight: picking ? "number" : "disabled",
+    enableLineSelection: picking,
+    ...(picking ? { onLineSelected: onSelect } : {}),
     unsafeCSS: DIFF_SHADOW_CSS,
     onPostRender,
-  }), [style, wrap, theme, colored, onPostRender]);
+  }), [style, wrap, theme, colored, onPostRender, picking, onSelect]);
   const metrics = useMemo(() => (lineHeight === null ? null : { ...DEFAULT_VIRTUAL_FILE_METRICS, lineHeight }), [lineHeight]);
 
   if (fileDiff === null || fileDiff.hunks.length === 0) return <p className="repo-diff-note">{t("No lines changed.")}</p>;

@@ -13,9 +13,10 @@ export interface FilePanelsParams {
   filePanelAvailable: boolean;
   selectedPaneId: string | null;
   selectedMachineId: string;
+  selectedWorkspaceId: string | null;
 }
 
-export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, selectedMachineId }: FilePanelsParams) {
+export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, selectedMachineId, selectedWorkspaceId }: FilePanelsParams) {
   // the Files dialog, and the file open in the viewer (a path as the chat or the dialog gave it)
   const [filesOpen, setFilesOpen] = useState(false);
   const { viewing, openFile, closeFile, setPresentation, releaseFile } = useFileViewer();
@@ -26,11 +27,24 @@ export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, se
   useEffect(() => {
     if (viewing !== null && fileDocked) setFilesOpen(false);
   }, [viewing, fileDocked]);
-  // a page this PC serves, beside the pane in the file panel's place: a file docked there replaces it
-  const [webPage, setWebPage] = useState<string | null>(null);
+  // a page this PC serves, beside the pane in the file panel's place: each space keeps its own,
+  // and a file docked there replaces the selected space's
+  const [webPages, setWebPages] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const spaceKey = webPageKey(selectedMachineId, selectedWorkspaceId);
+  const spaceKeyRef = useRef(spaceKey);
+  spaceKeyRef.current = spaceKey;
+  const webPage = webPages.get(spaceKey) ?? null;
+  const setPageFor = useCallback((key: string, url: string | null) => setWebPages((pages) => {
+    if ((pages.get(key) ?? null) === url) return pages;
+    const next = new Map(pages);
+    if (url === null) next.delete(key);
+    else next.set(key, url);
+    return next;
+  }), []);
+  const setWebPage = useCallback((url: string | null) => setPageFor(spaceKeyRef.current, url), [setPageFor]);
   useEffect(() => {
     if (viewing !== null && fileDocked) setWebPage(null);
-  }, [viewing, fileDocked]);
+  }, [viewing, fileDocked, setWebPage]);
   const openWebPage = useCallback((uri: string, shiftKey: boolean, machineId: string) => {
     if (machineId !== LOCAL_MACHINE || !wantsPanel(settings.webLinks, shiftKey)) return false;
     const url = panelUrl(uri, window.location);
@@ -38,7 +52,30 @@ export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, se
     if (viewing !== null && fileDocked) closeFile();
     setWebPage(url);
     return true;
-  }, [settings.webLinks, viewing, fileDocked, closeFile]);
+  }, [settings.webLinks, viewing, fileDocked, closeFile, setWebPage]);
+  // a page a pane asked for (POST /api/web-panel) opens in that pane's space, whatever a click would do
+  useEffect(() => {
+    if (!filePanelAvailable) return;
+    const open = (event: Event): void => {
+      const { url: uri, workspaceId } = (event as CustomEvent<{ url: string; workspaceId?: string }>).detail;
+      const url = panelUrl(uri, window.location);
+      if (url === null) return;
+      const key = workspaceId === undefined ? spaceKeyRef.current : webPageKey(LOCAL_MACHINE, workspaceId);
+      if (key === spaceKeyRef.current && viewing !== null && fileDocked) closeFile();
+      setPageFor(key, url);
+    };
+    window.addEventListener("ovis-open-web-page", open);
+    return () => window.removeEventListener("ovis-open-web-page", open);
+  }, [filePanelAvailable, viewing, fileDocked, closeFile, setPageFor]);
+  // a diff a pane asked for (POST /api/open-diff): read from its folder, its comments go to that pane's draft
+  useEffect(() => {
+    const open = (event: Event): void => {
+      const { pane_id, directory, path } = (event as CustomEvent<{ pane_id: string; directory: string; path: string }>).detail;
+      openDiff({ machineId: LOCAL_MACHINE, paneId: pane_id, directory, scope: "workspace", base: null, head: null, comparison: null, path, oldPath: null });
+    };
+    window.addEventListener("ovis-open-repo-diff", open);
+    return () => window.removeEventListener("ovis-open-repo-diff", open);
+  }, [openDiff]);
   // the panel is no dialog, so no trap gives the focus back when it closes: what opened the file
   // (a link in the chat, a row of Files) gets it, as it does from the popup
   useFocusReturn(viewing !== null && fileDocked);
@@ -76,4 +113,8 @@ export function useFilePanels({ settings, filePanelAvailable, selectedPaneId, se
     openFile({ path, paneId: selectedPaneId, machineId: selectedMachineId });
   }, [openFile, selectedPaneId, selectedMachineId, filePanelAvailable, settings.fileOpen]);
   return { filesOpen, setFilesOpen, viewing, openFile, closeFile, setPresentation, releaseFile, diffViewing, openDiff, closeDiff, releaseDiff, presentation, fileDocked, webPage, setWebPage, openWebPage, collapsing, presentFile, reportFileKind, toggleFilePresentation, viewFile };
+}
+
+function webPageKey(machineId: string, workspaceId: string | null): string {
+  return `${machineId}\u0000${workspaceId ?? ""}`;
 }

@@ -889,6 +889,10 @@ export type ServerMessage =
    * to the front), whoever moved it: its TUI, its CLI or a script. A browser follows it only when
    * asked to (Settings → Terminal); an older bridge never sends it */
   | { type: "pane-focused"; pane_id: string }
+  /** a page this PC serves, to open beside a space's panes (POST /api/web-panel); no `workspace_id`: the selected space; an older bridge never sends it */
+  | { type: "open-web-page"; url: string; workspace_id?: string }
+  /** a file's working-tree changes in `directory`'s repository, opened over the app for `pane_id` (POST /api/open-diff) */
+  | { type: "open-repo-diff"; pane_id: string; directory: string; path: string }
   /** a watched pane's screen as herdr draws it for the watch's grid: whole screens and changes, written as they come; never acknowledged */
   | { type: "watch-data"; pane_id: string; data: string }
   /** the watch ended (pane gone, herdr closed it, or this herdr has no read-only view); the client keeps its last screen */
