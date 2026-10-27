@@ -22,7 +22,8 @@ import { useT } from "../lib/i18n.ts";
 import { userErrorMessage } from "../lib/userError.ts";
 import { rosterPanes } from "../lib/dagPane.ts";
 import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
-import { currentProjectColors, hueColor, PROJECT_HUES, projectKey, setProjectHue, useProjectColor } from "../lib/projectColors.ts";
+import { hueColor, PROJECT_HUES, projectKey, withProjectHue } from "../lib/projectColors.ts";
+import { useAdoptLegacyProjectColors, useProjectColor } from "../lib/useProjectColor.ts";
 import { filterWorkspaceGroups, machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
 import { useSettings } from "../lib/settings.ts";
@@ -192,11 +193,12 @@ export interface SidebarProps {
  */
 export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = false }: SidebarProps) {
   const t = useT();
-  const { settings, resolvedEntry } = useSettings();
+  const { settings, resolvedEntry, update } = useSettings();
   const twoLine = settings.sidebarRows === "two";
   const machineId = useMachineId();
   const activity = useSidebarActivity();
   const projectColor = useProjectColor();
+  useAdoptLegacyProjectColors();
   const [colorMenu, setColorMenu] = useState<ColorMenuState | null>(null);
   const { closeWorkspace, listWorktrees, moveWorkspace, removeWorktree, renameWorkspace } = useMachineApi();
   // the row menu's Earlier sessions needs the PC's bridge to list them (lib/useSessionHistoryOffered.ts)
@@ -824,13 +826,14 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
       </nav>
       {menu && <RowMenu anchor={menu.anchor} point={menu.point} restoreFocusTo={menu.previousFocus} title={menu.title} subtitle={menu.place} items={menuItems(menu)} onClose={closeMenu} />}
       {colorMenu && (() => {
-        const picked = currentProjectColors()[colorMenu.key];
+        const picked = settings.projectColors[colorMenu.key];
+        const pick = (index: number | null) => update({ projectColors: withProjectHue(settings.projectColors, colorMenu.key, index) });
         // in PROJECT_HUES' order, each a literal key for the dictionaries' check
         const hueWords = [t("Red"), t("Orange"), t("Yellow"), t("Lime"), t("Green"), t("Teal"), t("Cyan"), t("Sky"), t("Blue"), t("Violet"), t("Magenta"), t("Pink")];
         const swatch = (background: string | undefined) => <span className="project-swatch" style={{ background }} aria-hidden="true" />;
         return <RowMenu anchor={colorMenu.anchor} point={colorMenu.point} restoreFocusTo={colorMenu.previousFocus} title={t("Project color")} subtitle={colorMenu.title} onClose={() => setColorMenu(null)} items={[
-          { id: "automatic", label: t("Automatic"), icon: Palette, current: picked === undefined, run: () => setProjectHue(colorMenu.key, null) },
-          ...PROJECT_HUES.map((hue, index) => ({ id: `hue-${index}`, label: hueWords[index] ?? hue.name, icon: Palette, glyph: swatch(hueColor(index, resolvedEntry.mode)), current: picked === index, divider: index === 0, run: () => setProjectHue(colorMenu.key, index) })),
+          { id: "automatic", label: t("Automatic"), icon: Palette, current: picked === undefined, run: () => pick(null) },
+          ...PROJECT_HUES.map((hue, index) => ({ id: `hue-${index}`, label: hueWords[index] ?? hue.name, icon: Palette, glyph: swatch(hueColor(index, resolvedEntry.mode)), current: picked === index, divider: index === 0, run: () => pick(index) })),
         ]} />;
       })()}
       {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.action ?? t("Close")} onConfirm={confirm.run} escalation={confirm.escalation} onClose={() => setConfirm(null)} />}

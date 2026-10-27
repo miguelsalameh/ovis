@@ -1,5 +1,6 @@
 import type { WorkspaceInfo } from "../../shared/protocol.ts";
-import { projectKey, useProjectColor } from "../lib/projectColors.ts";
+import { projectKey } from "../lib/projectColors.ts";
+import { useProjectColor } from "../lib/useProjectColor.ts";
 import "./ProjectDot.css";
 
 /** The open pane's project color before its workspace's name in the header (lib/projectColors.ts). */

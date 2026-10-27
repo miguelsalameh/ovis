@@ -1,14 +1,11 @@
-import { useSyncExternalStore } from "react";
-
 import type { WorkspaceInfo } from "../../shared/protocol.ts";
-import { useSettings } from "./settings.ts";
 
 /**
  * A color per project, so its workspaces, agents and open pane are told apart at a glance: a
  * repository's main checkout and its worktrees share one, a folder outside git has its own. Each
- * project gets one of twelve hues from its key, the same on every load; the user can pick another
- * on this device. The hues sit evenly round OKLCH at one lightness per mode, so each reads alike on
- * the theme's light or dark surface.
+ * project gets one of twelve hues from its key, the same on every load; the user can pick another,
+ * which every browser of this server shares (the projectColors setting). The hues sit evenly round
+ * OKLCH at one lightness per mode, so each reads alike on the theme's light or dark surface.
  */
 
 export const PROJECT_HUES = [
@@ -16,8 +13,6 @@ export const PROJECT_HUES = [
   { name: "Green", hue: 145 }, { name: "Teal", hue: 175 }, { name: "Cyan", hue: 205 }, { name: "Sky", hue: 235 },
   { name: "Blue", hue: 265 }, { name: "Violet", hue: 295 }, { name: "Magenta", hue: 325 }, { name: "Pink", hue: 355 },
 ] as const;
-
-const STORAGE_KEY = "ovis:project-colors";
 
 /** A repository is one project on every PC; a folder outside git is its workspace's own. */
 export function projectKey(machineId: string, workspace: Pick<WorkspaceInfo, "workspace_id" | "worktree">): string {
@@ -41,44 +36,19 @@ export function hueColor(index: number, mode: "dark" | "light"): string {
   return mode === "dark" ? `oklch(0.74 0.13 ${hue})` : `oklch(0.56 0.15 ${hue})`;
 }
 
-function storage(): Storage | null {
-  try { return typeof localStorage === "undefined" ? null : localStorage; }
-  catch { return null; }
+/** At most this many picks are kept: a shared setting stays a short document (shared/preferences.ts). */
+export const PROJECT_COLORS_MAX = 300;
+
+/** The picks a stored or shared value holds: a hue index per project key, the rest dropped. */
+export function sanitizeProjectColors(value: unknown): Record<string, number> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
+  const picks = Object.entries(value).filter((entry): entry is [string, number] =>
+    entry[0].length > 0 && entry[0].length <= 300 && Number.isInteger(entry[1]) && entry[1] >= 0 && entry[1] < PROJECT_HUES.length);
+  return Object.fromEntries(picks.slice(-PROJECT_COLORS_MAX));
 }
 
-function load(): Record<string, number> {
-  try {
-    const parsed: unknown = JSON.parse(storage()?.getItem(STORAGE_KEY) ?? "{}");
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, number] => typeof entry[1] === "number"));
-  } catch { return {}; }
-}
-
-let picked: Record<string, number> | null = null;
-const listeners = new Set<() => void>();
-
-export function currentProjectColors(): Record<string, number> {
-  picked ??= load();
-  return picked;
-}
-
-export function subscribeProjectColors(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
-
-/** The user's hue for a project on this device; null goes back to the automatic one. */
-export function setProjectHue(key: string, index: number | null): void {
-  const { [key]: _, ...rest } = currentProjectColors();
-  picked = index === null ? rest : { ...rest, [key]: index };
-  try { storage()?.setItem(STORAGE_KEY, JSON.stringify(picked)); }
-  catch { /* storage denied: the pick lasts for the session */ }
-  for (const listener of [...listeners]) listener();
-}
-
-/** A project's color in the theme's mode, given its key (null: none). */
-export function useProjectColor(): (key: string | null) => string | undefined {
-  const colors = useSyncExternalStore(subscribeProjectColors, currentProjectColors, currentProjectColors);
-  const { resolvedEntry } = useSettings();
-  return (key) => (key === null ? undefined : hueColor(projectHue(key, colors), resolvedEntry.mode));
+/** The picks with a project's hue set; null goes back to the automatic one. */
+export function withProjectHue(picked: Readonly<Record<string, number>>, key: string, index: number | null): Record<string, number> {
+  const { [key]: _, ...rest } = picked;
+  return index === null ? rest : { ...rest, [key]: index };
 }
