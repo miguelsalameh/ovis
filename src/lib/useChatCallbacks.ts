@@ -5,6 +5,7 @@ import type { AgentStatus, ConversationMetadata, InteractivePrompt } from "../..
 import type { TypedAnswer } from "./promptAnswer.ts";
 import type { HerdrSocket } from "./ws.ts";
 import type { StillOpen } from "./paneTerminalShared.ts";
+import { samePrompts } from "./promptRecall.ts";
 
 export interface ChatCallbacksDeps {
   activeRef: MutableRefObject<boolean>;
@@ -78,6 +79,13 @@ export function useChatCallbacks(deps: ChatCallbacksDeps) {
       ? (current?.pane === pane && current.value === value ? current : { pane, value })
       : current?.pane === pane ? null : current);
   }, []);
+  // the pane's sent prompts, newest last, for the composer's ArrowUp recall
+  const [chatPrompts, setChatPrompts] = useState<{ pane: string; value: string[] } | null>(null);
+  const onChatPrompts = useCallback((pane: string, value: string[] | null) => {
+    setChatPrompts((current) => value !== null
+      ? (current?.pane === pane && samePrompts(current.value, value) ? current : { pane, value })
+      : current?.pane === pane ? null : current);
+  }, []);
   // a typed pick of an approval's option, shown in the card until Confirm or Cancel
   const [pendingAnswer, setPendingAnswer] = useState<{ pane: string; promptId: string; answer: TypedAnswer } | null>(null);
   // where the chat draws its prompt card: on the composer's column, between the held messages and
@@ -114,5 +122,5 @@ export function useChatCallbacks(deps: ChatCallbacksDeps) {
       && previous.value?.context?.window === value?.context?.window ? previous : { pane, value });
   }, []);
 
-  return { conversationPushes, setConversationPushes, onConversationWatch, chatOutputRef, onTerminalOutput, chatSent, setChatSent, chatMetadata, redrawGreeting, onChatRead, greetingRoom, setGreetingRoom, greetingRef, chatPrompt, promptRefresh, setPromptRefresh, chatSuggestion, chatRestored, pendingAnswer, setPendingAnswer, promptDock, setPromptDock, onPromptAnswered, clearPendingAnswer, onChatPrompt, onChatMetadata, onChatSuggestion, onChatRestored };
+  return { conversationPushes, setConversationPushes, onConversationWatch, chatOutputRef, onTerminalOutput, chatSent, setChatSent, chatMetadata, redrawGreeting, onChatRead, greetingRoom, setGreetingRoom, greetingRef, chatPrompt, promptRefresh, setPromptRefresh, chatSuggestion, chatRestored, chatPrompts, pendingAnswer, setPendingAnswer, promptDock, setPromptDock, onPromptAnswered, clearPendingAnswer, onChatPrompt, onChatMetadata, onChatSuggestion, onChatRestored, onChatPrompts };
 }
