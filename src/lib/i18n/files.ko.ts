@@ -117,4 +117,11 @@ export const FILES_KO: Record<string, string> = {
   "Collapse all folders": "모든 폴더 접기",
   "Expand all folders": "모든 폴더 펼치기",
   "Browse folders in the palette": "팔레트에서 폴더 탐색",
+  "Add to message": "메시지에 추가",
+  "Add to message (Cmd+Enter)": "메시지에 추가 (Cmd+Enter)",
+  "Cancel comment": "댓글 취소",
+  "Comment for the agent": "에이전트에게 남길 댓글",
+  "Comment on {lines}": "{lines}에 댓글 달기",
+  "Line {line}": "{line}행",
+  "Lines {start}-{end}": "{start}-{end}행",
 };

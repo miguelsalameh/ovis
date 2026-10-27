@@ -335,36 +335,3 @@
     min-height: max(44px, var(--touch-target));
   }
 }
-
-.repo-diff-comment-field {
-  align-items: flex-start;
-}
-
-.repo-diff-comment-field .input {
-  resize: vertical;
-  min-height: 2.5em;
-  font: inherit;
-}
-
-.repo-diff-comment-lines {
-  flex: 0 0 auto;
-  padding-top: var(--space-1);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.repo-diff-comment-add {
-  flex: 0 0 auto;
-  align-self: flex-start;
-}
-
-.repo-diff-comment-note {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
-  color: var(--text-dim);
-  font-size: var(--fs-xs);
-  background: var(--bg-panel);
-  border-bottom: var(--hairline) solid var(--border);
-}

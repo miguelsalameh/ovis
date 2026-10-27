@@ -117,4 +117,11 @@ export const FILES_JA: Record<string, string> = {
   "Collapse all folders": "すべてのフォルダを折りたたむ",
   "Expand all folders": "すべてのフォルダを展開",
   "Browse folders in the palette": "パレットでフォルダを参照",
+  "Add to message": "メッセージに追加",
+  "Add to message (Cmd+Enter)": "メッセージに追加 (Cmd+Enter)",
+  "Cancel comment": "コメントをキャンセル",
+  "Comment for the agent": "エージェントへのコメント",
+  "Comment on {lines}": "{lines} へのコメント",
+  "Line {line}": "{line} 行目",
+  "Lines {start}-{end}": "{start}-{end} 行目",
 };

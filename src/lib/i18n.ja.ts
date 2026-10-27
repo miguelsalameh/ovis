@@ -23,6 +23,8 @@ import { PALETTE_JA } from "./i18n/palette.ja.ts";
  * in English. Placeholders in braces keep their English names.
  */
 const BASE: Record<string, string> = {
+  "Added to the message draft": "メッセージの下書きに追加しました",
+  "Too long for the message draft": "メッセージの下書きには長すぎます",
   "Back": "戻る",
   "Scroll pane up": "ペインを上にスクロール",
   "Scroll pane down": "ペインを下にスクロール",

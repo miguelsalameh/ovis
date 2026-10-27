@@ -117,4 +117,11 @@ export const FILES_ZH: Record<string, string> = {
   "Collapse all folders": "折叠所有文件夹",
   "Expand all folders": "展开所有文件夹",
   "Browse folders in the palette": "在命令面板中浏览文件夹",
+  "Add to message": "添加到消息",
+  "Add to message (Cmd+Enter)": "添加到消息 (Cmd+Enter)",
+  "Cancel comment": "取消评论",
+  "Comment for the agent": "给智能体的评论",
+  "Comment on {lines}": "对 {lines} 的评论",
+  "Line {line}": "第 {line} 行",
+  "Lines {start}-{end}": "第 {start}-{end} 行",
 };
