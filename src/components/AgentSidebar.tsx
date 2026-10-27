@@ -16,6 +16,9 @@ import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
 import { machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
 import { useHiddenMachines } from "../lib/hiddenMachines.ts";
+import { rosterPanes } from "../lib/dagPane.ts";
+import { currentInactiveWorkspaces, inactiveWorkspaceIds, subscribeInactiveWorkspaces } from "../lib/inactiveWorkspaces.ts";
+import { rollupStatus } from "../lib/status.ts";
 import { currentSidebarPins, pruneSidebarPins, setSidebarPins, sidebarPinKey, subscribeSidebarPins, toggleSidebarPin } from "../lib/sidebarPins.ts";
 import { PANE_DRAG_TYPE, paneDragData } from "../lib/split.ts";
 import { AgentMark, hasAgentMark } from "./AgentMark.tsx";
@@ -96,7 +99,8 @@ const DRAWER_QUERY = "(max-width: 768px)";
 interface PinMenu { key: string; anchor: HTMLElement; point?: { x: number; y: number }; previousFocus?: HTMLElement | null }
 
 /**
- * All PCs' live agents form a second list; workspace and PC folds do not hide these rows.
+ * All PCs' live agents form a second list; workspace and PC folds do not hide these rows, a put-away
+ * workspace does (lib/inactiveWorkspaces.ts).
  * In the phone's drawer the list starts folded, leaving the room to the workspaces.
  * The pinned agents stand first, in a card; on a desktop only a
  * right-click (or the context-menu key) opens the menu. A row's ⋯, or a right-click on it, opens its
@@ -119,14 +123,28 @@ export function AgentSidebar({ machines, selectedMachineId, selectedPaneId, stat
   const byActivity = settings.agentOrder === "activity";
   const roster = useMemo(() => agentRoster(machines, { byActivity, seqs: activity.seqs, pinned }), [machines, byActivity, activity, pinned]);
   const allRows = useMemo(() => [...roster.pinned, ...roster.rest], [roster]);
+  // a put-away workspace's agents leave the list with it, as the workspace list judges them
+  // (lib/inactiveWorkspaces.ts); the selected one stays, and pins go on reading every row
+  const inactiveKeys = useSyncExternalStore(subscribeInactiveWorkspaces, currentInactiveWorkspaces, currentInactiveWorkspaces);
+  const active = useMemo(() => {
+    const away = new Map(machines.map((machine) => {
+      const panes = rosterPanes(machine.snapshot?.panes ?? [], machine.id === selectedMachineId ? selectedPaneId : null);
+      const ids = inactiveWorkspaceIds(inactiveKeys, machine.id, machine.snapshot?.workspaces.map((workspace) => workspace.workspace_id) ?? [],
+        (id) => rollupStatus(panes.filter((pane) => pane.workspace_id === id).map((pane) => activity.status(machine.id, pane))) === "blocked");
+      return [machine.id, new Set(ids)] as const;
+    }));
+    const shown = ({ machine, entry }: AgentRow): boolean => away.get(machine.id)?.has(entry.pane.workspace_id) !== true
+      || (machine.id === selectedMachineId && entry.pane.pane_id === selectedPaneId);
+    return { pinned: roster.pinned.filter(shown), rest: roster.rest.filter(shown) };
+  }, [roster, machines, inactiveKeys, activity, selectedMachineId, selectedPaneId]);
   // the sidebar's filter (lib/sidebarFilter.ts) keeps the matched rows and the selected one, in the same
   // order and cards; the pins and their pruning go on reading every row
   const { filter } = useSidebarFilter();
   const split = useMemo(() => {
-    if (!filter.active) return roster;
+    if (!filter.active) return active;
     const kept = ({ machine, entry }: AgentRow): boolean => machineFilter(filter, machine.id)?.panes.has(entry.pane.pane_id) === true;
-    return { pinned: roster.pinned.filter(kept), rest: roster.rest.filter(kept) };
-  }, [roster, filter]);
+    return { pinned: active.pinned.filter(kept), rest: active.rest.filter(kept) };
+  }, [active, filter]);
   const rows = useMemo(() => [...split.pinned, ...split.rest], [split]);
   // a folded list (a phone's starts so) opens while the filter keeps rows in it, so a match or the selection is
   // seen, not only kept; its caret then folds and opens it for the filter's time, the list's own fold untouched
