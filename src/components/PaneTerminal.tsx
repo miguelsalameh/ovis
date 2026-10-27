@@ -25,7 +25,7 @@ import { composerLift, greetingMemory, greetingFits, greetingFolder, roomOverCom
 import { DETACHED, usePaneBranch } from "../lib/paneBranch.ts";
 import { answerHint } from "../lib/promptAnswer.ts";
 import { composerDrafts } from "../lib/composerDraft.ts";
-import { appendQuote, formatTerminalQuote } from "../lib/terminalQuote.ts";
+import { appendQuote, formatChatQuote, formatTerminalQuote } from "../lib/terminalQuote.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { useSessionHistoryOffered } from "../lib/useSessionHistoryOffered.ts";
 import { paneStorageId } from "../../shared/machines.ts";
@@ -514,7 +514,7 @@ export function PaneTerminal({
   const [chatRefresh, setChatRefresh] = useState(0);
   const [chatInvalidation, setChatInvalidation] = useState(0);
   const { autoPeek, onCommandScreenClosed, stillOpen, stillOpenRef, setStillOpen, pendingOpenRef, undecidedOpenRef, chatHistoryRef, stillOpenNotedRef, onInputRowFrameRef, stillOpenNote, showStillOpen } = usePeekReturn({ activeRef, agent, agentRef, agentStatus, chatMounted, coarseRef, compositionCommitPendingRef, composingRef, draftHeldForRef, ended, findOpenRef, frameGateRef, inputRowNow, lineComposingRef, onEndPeekRef, onOpenTerminal, onPeekRef, paneId, paneRef, peek, peekRef, presented, receiptRowRef, stackRef, termRef, terminalId, t, heldRef, unsupportedRef });
-  const { conversationPushes, setConversationPushes, onConversationWatch, chatOutputRef, onTerminalOutput, chatSent, setChatSent, chatMetadata, redrawGreeting, onChatRead, greetingRoom, setGreetingRoom, greetingRef, chatPrompt, promptRefresh, setPromptRefresh, chatSuggestion, chatRestored, pendingAnswer, setPendingAnswer, promptDock, setPromptDock, onPromptAnswered, clearPendingAnswer, onChatPrompt, onChatMetadata, onChatSuggestion, onChatRestored } = useChatCallbacks({ activeRef, agentStatus, chatHistoryRef, chatViewRef, findOpenRef, machineId, pendingOpenRef, setStillOpen, socketRef, stackRef, stillOpenRef, undecidedOpenRef });
+  const { conversationPushes, setConversationPushes, onConversationWatch, chatOutputRef, onTerminalOutput, chatSent, setChatSent, chatMetadata, redrawGreeting, onChatRead, greetingRoom, setGreetingRoom, greetingRef, chatPrompt, promptRefresh, setPromptRefresh, chatSuggestion, chatRestored, chatQuotable, pendingAnswer, setPendingAnswer, promptDock, setPromptDock, onPromptAnswered, clearPendingAnswer, onChatPrompt, onChatMetadata, onChatSuggestion, onChatRestored, onChatQuotable } = useChatCallbacks({ activeRef, agentStatus, chatHistoryRef, chatViewRef, findOpenRef, machineId, pendingOpenRef, setStillOpen, socketRef, stackRef, stillOpenRef, undecidedOpenRef });
   // This browser's own message from the box that the bridge took at once (ok, nothing pending), with
   // the chat's navigation generation from when it went out: the chat follows it to the end unless
   // the reader scrolled, paged or jumped since (ChatView `localSend`). A refusal, an uncertain or
@@ -581,6 +581,16 @@ export function PaneTerminal({
       setClipboardNote(null);
     }, 2500);
   }, []);
+  // the one way a quote reaches the draft, from the terminal or the chat; true when it was added
+  const quoteIntoDraft = (block: string | null): boolean => {
+    if (block === null || paneId === null) return false;
+    const key = `ovis:composer-draft:${paneStorageId(machineId, paneId)}`;
+    const next = appendQuote(composerDrafts.read(key).text, block, MAX_COMPOSER_CHARS);
+    if (next === null) { noteClipboard(t("Too long for the message draft")); return false; }
+    composerDrafts.set(key, next);
+    noteClipboard(t("Added to the message draft"));
+    return true;
+  };
 
   useTerminalMount({ activeRef, barKeyRef, baseFontRef, cachedRef, cachedReleaseRef, cancelLeaveRef, cancelTouchRef, chatMountedRef, chatOutputRef, chatViewRef, clearModifiers, clipboardTimerRef, coarseRef, commitPendingText, composingRef, compositionCommitPendingRef, deferAttachRef, draftHeldForRef, draftPaneRef, endedRef, findOpenRef, fitRef, fittedRef, fixedGridRef, followCursorRef, followRef, frameGateRef, heldRef, hostRef, hyperlinksRef, keyboardHoldsRef, leaveRef, lineScroll, machineId, machineSessions, mirroredRef, mirrorWrapRef, modifiersRef, modifyOtherKeysRef, narrowFontRef, noteClipboard, observeRef, onChatSuggestion, onInputRowFrameRef, onRoleAckRef, onServerMessageRef, openFileRef, openWebRef, osc52AllowedRef, outputTargetRef, palette, paneRef, pendingEpochRef, pendingScopeRef, pendingSubmissionsRef, pinchBadgeRef, pinchStatusRef, presentationRef, presentedRef, reassertIfStaleRef, reattachRef, redrawGreeting, releaseAwayRef, releaseRef, releasedRef, retireOutputRef, secretRef, sessionRef, setChatInvalidation, setChatRefresh, setChatSent, setComposing, setConnected, setConnectedBefore, setConversationPushes, setDraft, setEnded, setHeld, setInputError, setInputReady, setObserving, setOutputError, setOutputReady, setParsedTarget, setReleased, setSecret, setSelectionQuote, setTerminal, setUnsupported, setWatching, sharedGridRef, shortcutSettings, shownRef, sizesPty, socketRef, stackRef, stalledRef, stopKeyRef, submitRetention, t, tRef, termRef, terminalFontSize, theme, updateSettings, uploadFileRef, watchingRef, wheelStateRef });
 
@@ -996,18 +1006,13 @@ export function PaneTerminal({
             {t("View only")}
           </div>
         )}
-        {paneId !== null && !chatView && selectionQuote?.pane === paneId && (
+        {paneId !== null && (chatView ? chatQuotable?.pane === paneId : selectionQuote?.pane === paneId) && (
           <button type="button" className="terminal-banner terminal-banner-action terminal-quote"
             onMouseDown={(event) => { event.preventDefault(); }}
             onClick={() => {
-              const block = formatTerminalQuote({ label: title?.trim() || paneId, range: selectionQuote.range, text: selectionQuote.text });
-              if (block === null) return;
-              const key = `ovis:composer-draft:${paneStorageId(machineId, paneId)}`;
-              const next = appendQuote(composerDrafts.read(key).text, block, MAX_COMPOSER_CHARS);
-              if (next === null) { noteClipboard(t("Too long for the message draft")); return; }
-              composerDrafts.set(key, next);
-              termRef.current?.clearSelection();
-              noteClipboard(t("Added to the message draft"));
+              if (chatView) {
+                if (chatQuotable?.pane === paneId && quoteIntoDraft(formatChatQuote(chatQuotable.text))) getSelection()?.removeAllRanges();
+              } else if (selectionQuote?.pane === paneId && quoteIntoDraft(formatTerminalQuote({ label: title?.trim() || paneId, range: selectionQuote.range, text: selectionQuote.text }))) termRef.current?.clearSelection();
             }}>
             <Quote aria-hidden="true" />{t("Quote in message")}
           </button>
@@ -1075,6 +1080,7 @@ export function PaneTerminal({
             onPrompt={onChatPrompt}
             onSuggestion={onChatSuggestion}
             onRestored={onChatRestored}
+            onQuotable={onChatQuotable}
             promptRefreshKey={promptRefresh}
             pendingAnswer={pendingAnswer !== null && pendingAnswer.pane === paneId ? pendingAnswer : null}
             onPendingAnswerDone={clearPendingAnswer}

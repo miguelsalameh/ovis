@@ -31,6 +31,12 @@ export function formatTerminalQuote(quote: TerminalQuote): string | null {
   return `${quoteHeading(label, quote.range)}:\n${fence}\n${text}\n${fence}`;
 }
 
+/** Chat text as a Markdown blockquote, `>` on every line (blank ones too); null when nothing is left. */
+export function formatChatQuote(text: string): string | null {
+  const body = quotedText(text);
+  return body === null ? null : body.split("\n").map((line) => line === "" ? ">" : `> ${line}`).join("\n");
+}
+
 /**
  * The draft with the quote added after what is there, set apart by a blank line and followed by a
  * line break so the user types below it. Null when the result would pass `max` characters.
