@@ -516,6 +516,12 @@ export async function fetchPaneScroll(paneId: string, machineId = "local"): Prom
   return (await getJson<{ scroll: PaneScrollInfo | null }>(machinePath(machineId, `pane/scroll?pane_id=${encodeURIComponent(paneId)}`))).scroll;
 }
 
+/** GET /api/pane/read of the viewport with its colors: what the pane's own terminal shows now. */
+export async function fetchPaneScreen(paneId: string, machineId = "local"): Promise<string> {
+  const query = new URLSearchParams({ pane_id: paneId, source: "visible", format: "ansi" });
+  return (await getJson<{ read: PaneReadResult }>(machinePath(machineId, `pane/read?${query.toString()}`))).read.text;
+}
+
 /** POST /api/pane/scroll: moves the viewport; herdr redraws the attached terminal. */
 export async function scrollPane(paneId: string, offsetFromBottom: number, machineId = "local"): Promise<PaneScrollInfo | null> {
   const response = await sendJson(machinePath(machineId, "pane/scroll"), "POST", { pane_id: paneId, offset_from_bottom: offsetFromBottom });
