@@ -21,7 +21,8 @@ import { useT } from "../lib/i18n.ts";
 import { userErrorMessage } from "../lib/userError.ts";
 import { rosterPanes } from "../lib/dagPane.ts";
 import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
-import { currentInactiveWorkspaces, inactiveWorkspaceIds, isInactiveWorkspace, saveInactiveCollapsed, storedInactiveCollapsed, subscribeInactiveWorkspaces, toggleInactiveWorkspace } from "../lib/inactiveWorkspaces.ts";
+import { inactiveWorkspaceIds, isInactiveWorkspace, saveInactiveCollapsed, storedInactiveCollapsed, toggledInactiveWorkspaces } from "../lib/inactiveWorkspaces.ts";
+import { useAdoptLegacyInactiveWorkspaces } from "../lib/useAdoptLegacyInactiveWorkspaces.ts";
 import { filterWorkspaceGroups, machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
 import { useSettings } from "../lib/settings.ts";
@@ -189,7 +190,7 @@ export interface SidebarProps {
  */
 export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = false }: SidebarProps) {
   const t = useT();
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const twoLine = settings.sidebarRows === "two";
   const machineId = useMachineId();
   const activity = useSidebarActivity();
@@ -319,7 +320,8 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
   const pinnedIds = useMemo(() => pinnedWorkspaceIds(pins, machineId), [pins, machineId]);
   // put-away workspaces stand below the rest in a group of their own, out of pins and moves, until
   // one has an agent blocked on the user (lib/inactiveWorkspaces.ts)
-  const inactiveKeys = useSyncExternalStore(subscribeInactiveWorkspaces, currentInactiveWorkspaces, currentInactiveWorkspaces);
+  const inactiveKeys = settings.inactiveWorkspaces;
+  useAdoptLegacyInactiveWorkspaces();
   const inactiveIds = useMemo(() => inactiveWorkspaceIds(inactiveKeys, machineId, orderedWorkspaces.map((workspace) => workspace.workspace_id),
     (id) => rollupStatus(roster.filter((pane) => pane.workspace_id === id).map((pane) => activity.status(machineId, pane))) === "blocked"),
   [inactiveKeys, machineId, orderedWorkspaces, roster, activity]);
@@ -354,7 +356,7 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
     if (back?.closest(`.workspace-group[data-workspace="${CSS.escape(id)}"]`)) refocusRow.current = id;
     // a workspace put away while its group is folded would vanish: the group opens to show where it went
     if (!isInactiveWorkspace(inactiveKeys, machineId, id) && inactiveCollapsed) { setInactiveCollapsed(false); saveInactiveCollapsed(machineId, false); }
-    toggleInactiveWorkspace(machineId, id, new Set(snapshot?.workspaces.map((workspace) => workspace.workspace_id) ?? []));
+    update({ inactiveWorkspaces: toggledInactiveWorkspaces(inactiveKeys, machineId, id, new Set(snapshot?.workspaces.map((workspace) => workspace.workspace_id) ?? [])) });
   };
 
   useLayoutEffect(() => {
