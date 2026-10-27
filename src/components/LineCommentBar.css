@@ -1,0 +1,50 @@
+.line-comment-field {
+  align-items: flex-start;
+}
+
+.line-comment-field .input {
+  resize: vertical;
+  min-height: 2.5em;
+  font: inherit;
+}
+
+.line-comment-lines {
+  flex: 0 0 auto;
+  padding-top: var(--space-1);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.line-comment-add {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.line-comment-cancel {
+  flex: none;
+  color: var(--text-dim);
+}
+
+@media (hover: hover) {
+  .line-comment-cancel:hover:not(:disabled) {
+    color: var(--text-strong);
+  }
+}
+
+.line-comment-note {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  background: var(--bg-panel);
+  border-bottom: var(--hairline) solid var(--border);
+}
+
+@media (max-width: 600px) {
+  .line-comment-cancel {
+    width: max(44px, var(--touch-target));
+    height: max(44px, var(--touch-target));
+  }
+}

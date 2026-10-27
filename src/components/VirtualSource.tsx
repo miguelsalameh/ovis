@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_VIRTUAL_FILE_METRICS, type FileContents, type VirtualizedFile, type Virtualizer as VirtualizerInstance } from "@pierre/diffs";
+import { DEFAULT_VIRTUAL_FILE_METRICS, type FileContents, type SelectedLineRange, type VirtualizedFile, type Virtualizer as VirtualizerInstance } from "@pierre/diffs";
 import { File, useVirtualizer, Virtualizer, type FileOptions } from "@pierre/diffs/react";
 
 import { DiffWorkerPool } from "./DiffWorkerPool.tsx";
@@ -18,6 +18,10 @@ export interface VirtualSourceProps {
   theme: "dark" | "light";
   /** a requested line, within the source: marked, and brought to the middle of the view */
   markedLine: number | null;
+  /** the lines picked by their numbers, 1-based and inclusive; drawn over the marked line */
+  selection?: { start: number; end: number } | null;
+  /** given, lines can be picked by their numbers */
+  onSelect?: (range: SelectedLineRange | null) => void;
 }
 
 type FileOptionsOf = FileOptions<undefined, undefined>;
@@ -44,7 +48,7 @@ function VirtualizerProbe({ onInstance }: { onInstance: (instance: VirtualizerIn
  * width change, which re-measure the rows, keeps the marked line in view when it was, else the
  * top line in place.
  */
-export default function VirtualSource({ name, text, colored, wrap, theme, markedLine }: VirtualSourceProps) {
+export default function VirtualSource({ name, text, colored, wrap, theme, markedLine, selection = null, onSelect }: VirtualSourceProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<VirtualizedFile | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
@@ -205,6 +209,7 @@ export default function VirtualSource({ name, text, colored, wrap, theme, marked
   const file = useMemo<FileContents>(() => colored
     ? { name, contents: text, cacheKey: contentKey(name, text) }
     : { name, contents: text, lang: "text" }, [name, text, colored]);
+  const picking = onSelect !== undefined;
   const options = useMemo<FileOptionsOf>(() => ({
     disableFileHeader: true,
     overflow: wrap ? "wrap" : "scroll",
@@ -212,12 +217,15 @@ export default function VirtualSource({ name, text, colored, wrap, theme, marked
     themeType: theme,
     // plain rows never queue a highlight: the virtualizer treats a file past this as massive
     tokenizeMaxLength: colored ? VIRTUAL_HIGHLIGHT_LINES : 0,
-    lineHoverHighlight: "disabled",
-    enableLineSelection: false,
+    lineHoverHighlight: picking ? "number" : "disabled",
+    enableLineSelection: picking,
+    ...(picking ? { onLineSelected: onSelect } : {}),
     unsafeCSS: SHADOW_CSS,
     onPostRender,
-  }), [wrap, theme, colored, onPostRender]);
-  const selected = useMemo(() => markedLine === null ? null : { start: markedLine, end: markedLine }, [markedLine]);
+  }), [wrap, theme, colored, onPostRender, picking, onSelect]);
+  const selectedStart = selection?.start;
+  const selectedEnd = selection?.end;
+  const selected = useMemo(() => selectedStart !== undefined && selectedEnd !== undefined ? { start: selectedStart, end: selectedEnd } : markedLine === null ? null : { start: markedLine, end: markedLine }, [selectedStart, selectedEnd, markedLine]);
   const metrics = useMemo(() => lineHeight === null ? null : { ...DEFAULT_VIRTUAL_FILE_METRICS, lineHeight }, [lineHeight]);
 
   // plain rows go through the pool too, though they never reach a worker: without one the package

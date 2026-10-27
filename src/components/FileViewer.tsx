@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Braces, Check, Code, Copy, Download, Ellipsis, ExternalLink, Link2, Maximize2, PanelRight, TriangleAlert, X } from "lucide-react";
 
+import type { SelectedLineRange } from "@pierre/diffs";
+
 import "./FileViewer.css";
 import { DirectoryBrowser } from "./DirectoryBrowser.tsx";
 import { FileGlyph } from "./FileGlyph.tsx";
 import { useHighlightedLines } from "./HighlightedCode.tsx";
 import { RenderBoundary } from "./RenderBoundary.tsx";
+import { LineCommentBar, lineRangeLabel } from "./LineCommentBar.tsx";
 import { TextFileView } from "./TextFileView.tsx";
 import { MarkdownImageContext } from "./Markdown.tsx";
 
@@ -27,6 +30,7 @@ import { useAppWindow } from "../lib/install.ts";
 import type { MarkdownBlock } from "../lib/markdown.ts";
 import { knownPreview, parsePreviewOffThread } from "../lib/markdownPreview.ts";
 import { hasPreview, type TextViewMode } from "../lib/textPreview.ts";
+import { formatFileComment, pickLine, selectionOf, type LineSelection } from "../lib/repoDiffComment.ts";
 import { useSheetSwipe } from "../lib/sheets.ts";
 import { readFilePreviewText, SOURCE_PREVIEW_LINES, type FilePreviewText } from "../lib/filePreviewText.ts";
 import { readerHref } from "../lib/fileReader.ts";
@@ -185,6 +189,10 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
   const sourceRef = useRef<HTMLElement>(null);
   // a virtualized source shown as one readonly text box, for that selection: its rows hold only a window of the text
   const [selectable, setSelectable] = useState(false);
+  // lines picked by their numbers, to comment on into the opening pane's message draft
+  const [selection, setSelection] = useState<LineSelection | null>(null);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   // Copy failed in a Preview: select the source as soon as the Code view has rendered
   const selectSourceOnCode = useRef(false);
   /** Switches a Preview to its source and has it selected once rendered, for Copy without a clipboard. */
@@ -276,6 +284,8 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== "Escape" || nativeModalOver(surface.current)) return;
       if (docked && !surface.current?.contains(document.activeElement)) return;
+      // Escape drops a pick first, the viewer on the next press
+      if (selectionRef.current !== null) { event.preventDefault(); setSelection(null); return; }
       onClose();
     };
     window.addEventListener("keydown", onKey);
@@ -351,6 +361,16 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
   const virtual = useMemo(() => codeShown && layout === "virtual" ? { text: sourceText, colored: colorable && virtualHighlightable(sourceText.length, sourceLines) } : null, [codeShown, layout, sourceText, colorable, sourceLines]);
   // CodeLines' code has no length limit of its own (the layout bounds it): only a worker that gave up leaves it plain
   const code = useHighlightedLines(codeShown && layout === "elements" ? sourceText : "", codeShown ? language : null);
+  // lines can be picked only in code, and only when there is a pane whose draft takes the comment;
+  // the readonly text box (Copy's fallback) has no numbers
+  const draftKey = paneId === null ? null : `ovis:composer-draft:${paneStorageId(machineId, paneId)}`;
+  const pickable = draftKey !== null && codeShown && !selectable;
+  // another file, another text (a reload, a Preview): the picked lines were another one's
+  useEffect(() => setSelection(null), [path, sourceText]);
+  const pickNumber = useCallback((line: number, extend: boolean) => setSelection((current) => pickLine(current, line, extend)), []);
+  const pickRange = useCallback((range: SelectedLineRange | null) => setSelection(selectionOf(range)), []);
+  const commentBar = pickable && <LineCommentBar draftKey={draftKey} label={selection === null ? null : lineRangeLabel(t, selection.start, selection.end)}
+    quote={(comment) => selection === null ? null : formatFileComment(info?.path ?? target.path, sourceText.split("\n"), selection, comment)} onClear={() => setSelection(null)} />;
   const shownPath = info?.path ?? target.path;
   const { stem, extension } = pathParts(info?.name ?? shownPath);
   const { folder } = pathParts(shownPath);
@@ -432,7 +452,8 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
               <button type="button" className="btn btn-ghost" onClick={() => setChosen({ path, mode: "code" })}>{t("Show source")}</button>
             </div>
             : <p className="file-viewer-note" role="alert">{t("The file could not be opened.")}</p>}>
-            <MarkdownImageContext.Provider value={imagePreview}><TextFileView path={info.path} blocks={view === "markdown" && preview.status === "ready" ? preview.blocks : null} lines={code.lines} virtual={virtual} selectable={selectable} onOpen={onOpen ?? setPath} sourceRef={sourceRef} markedLine={request?.kind === "shown" ? request.line : null} /></MarkdownImageContext.Provider>
+            <MarkdownImageContext.Provider value={imagePreview}><TextFileView path={info.path} blocks={view === "markdown" && preview.status === "ready" ? preview.blocks : null} lines={code.lines} virtual={virtual} selectable={selectable} onOpen={onOpen ?? setPath} sourceRef={sourceRef} markedLine={request?.kind === "shown" ? request.line : null}
+              selection={pickable ? selection : null} onPickLine={pickable ? pickNumber : undefined} onSelectRange={pickable ? pickRange : undefined} /></MarkdownImageContext.Provider>
           </RenderBoundary>}
         </>;
       default:
@@ -523,6 +544,7 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
   if (page) return (
     <main ref={surface} className="file-reader">
       {header}
+      {commentBar}
       {/* the focus starts here, as in the popup: a scroll box takes Space and the arrows */}
       <div ref={bodyRef} className={`${bodyClass} file-reader-body`} tabIndex={-1}>{body}{openingNote}</div>
     </main>
@@ -534,6 +556,7 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
       <section className="file-viewer file-viewer-docked">
         {header}
         {toolbar}
+        {commentBar}
         <div className={bodyClass}>{body}</div>
       </section>
     </aside>
@@ -543,6 +566,7 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen, keyboardActiv
     <div className="modal-scrim file-viewer-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className={virtual !== null && view === "code" ? "modal file-viewer file-viewer-virtual" : "modal file-viewer"} role="dialog" aria-modal="true" aria-label={info?.name ?? path} ref={surface} tabIndex={-1}>
         {header}
+        {commentBar}
         {/* the focus starts here (a scroll box takes Space and the arrows), and moves on to a player */}
         <div ref={bodyRef} className={bodyClass} tabIndex={-1}>{body}{openingNote}</div>
       </section>

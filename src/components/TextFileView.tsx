@@ -1,3 +1,4 @@
+import type { SelectedLineRange } from "@pierre/diffs";
 import { lazy, Suspense, useCallback, useLayoutEffect, useRef, type RefObject } from "react";
 
 import { OpenFileContext } from "../lib/filePaths.ts";
@@ -32,10 +33,16 @@ export interface TextFileViewProps {
   /** set to the source element while the code shows (the `<pre>`, or the text box), for Copy to select */
   sourceRef: RefObject<HTMLElement | null>;
   markedLine: number | null;
+  /** the lines picked by their numbers, 1-based and inclusive */
+  selection?: { start: number; end: number } | null;
+  /** given, a line's number picks it (`extend`: shift-click) in the code drawn per line */
+  onPickLine?: (line: number, extend: boolean) => void;
+  /** given, the virtualized rows' numbers pick lines (the package's own click and shift-click) */
+  onSelectRange?: (range: SelectedLineRange | null) => void;
 }
 
 /** The text of a file: Markdown rendered, or its code with line numbers. */
-export function TextFileView({ path, blocks, lines, virtual, selectable, onOpen, sourceRef, markedLine }: TextFileViewProps) {
+export function TextFileView({ path, blocks, lines, virtual, selectable, onOpen, sourceRef, markedLine, selection = null, onPickLine, onSelectRange }: TextFileViewProps) {
   const t = useT();
   const { settings, resolvedEntry } = useSettings();
   // the app hands a new onOpen on every render (each poll): read it from a ref, so the context
@@ -48,10 +55,10 @@ export function TextFileView({ path, blocks, lines, virtual, selectable, onOpen,
     if (blocks === null && virtual === null && markedLine !== null) sourceRef.current?.querySelector(".hl-line.is-marked")?.scrollIntoView({ block: "center", inline: "nearest" });
   }, [path, blocks, virtual, markedLine, sourceRef]);
   const code = (() => {
-    if (virtual === null) return <CodeLines ref={sourceRef as RefObject<HTMLPreElement | null>} className="file-viewer-text" lines={lines} open={null} lineNumbers wrap={settings.wrapCode} markedLine={markedLine} />;
+    if (virtual === null) return <CodeLines ref={sourceRef as RefObject<HTMLPreElement | null>} className="file-viewer-text" lines={lines} open={null} lineNumbers wrap={settings.wrapCode} markedLine={markedLine} onLinePick={onPickLine} selectedLines={selection} />;
     if (selectable) return <textarea ref={sourceRef as RefObject<HTMLTextAreaElement | null>} className="file-viewer-select-source" readOnly value={virtual.text} aria-label={t("File source")} spellCheck={false} />;
     return <Suspense fallback={<p className="file-viewer-note">{t("Opening…")}</p>}>
-      <VirtualSource name={path} text={virtual.text} colored={virtual.colored} wrap={settings.wrapCode} theme={resolvedEntry.mode} markedLine={markedLine} />
+      <VirtualSource name={path} text={virtual.text} colored={virtual.colored} wrap={settings.wrapCode} theme={resolvedEntry.mode} markedLine={markedLine} selection={selection} onSelect={onSelectRange} />
     </Suspense>;
   })();
   return <div className={virtual !== null && blocks === null ? "file-viewer-content file-viewer-content-virtual" : "file-viewer-content"}>
