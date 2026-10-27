@@ -656,6 +656,8 @@ function parseClaudeModel(screen: string): ParsedPrompt | null {
     options,
     multi_select: false,
     custom_option_index: null,
+    // its footer (CLAUDE_MODEL_GUARD_RE) says Esc cancels, keeping the model as it was
+    can_cancel: true,
   }, {
     // a row by its number in the whole list and by what it says too: the window moves, two rows
     // may share a name, and a list by family names the model itself only in what the row says
@@ -728,6 +730,8 @@ function parseClaudeEffort(screen: string): ParsedPrompt | null {
     options: names.map((label) => ({ label, description: null })),
     multi_select: false,
     custom_option_index: null,
+    // its footer (CLAUDE_EFFORT_HINT_RE) says Esc cancels, keeping the level as it was
+    can_cancel: true,
   }, {
     responder: "claude-effort", menuLabels: names, selectedIndex,
     checkedOptionIndices: [], customMenuIndex: null, rejectWithEscapeIndex: null,

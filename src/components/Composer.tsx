@@ -91,6 +91,8 @@ export interface ComposerProps {
   answerHint?: string | null;
   /** a typed pick waiting in the card above for Confirm: Enter in the empty box confirms it, Escape cancels it */
   waitingAnswer?: { confirm(): Promise<boolean | string>; cancel(): void } | null;
+  /** the card's Cancel, which the empty box's Escape presses too; null: the card has none */
+  cancelPrompt?: (() => Promise<boolean | string>) | null;
   /** what the agent suggests typing next (Claude's grey input text): the placeholder, taken with Tab */
   suggestion?: string | null;
   /** a cancelled send the agent put back in its input box: the empty box takes it again, for editing and resending */
@@ -247,6 +249,7 @@ export function Composer({
   metadata,
   answerHint = null,
   waitingAnswer = null,
+  cancelPrompt = null,
   suggestion = null,
   restored = null,
   greeting = null,
@@ -988,11 +991,17 @@ export function Composer({
           return;
         }
       }
+      // the card's menu closes on Esc in the agent's own terminal: so does it from the empty box
+      if (event.key === "Escape" && cancelPrompt !== null && textRef.current === "") {
+        event.preventDefault();
+        if (!event.repeat) sendBeside(cancelPrompt);
+        return;
+      }
       if (!shouldSend) return;
       event.preventDefault();
       send();
     },
-    [agentStatus, choices, connected, menuDismissed, menuOpen, offered, onAbort, selectCompletion, selectedIndex, send, sendBeside, setTextAndCaret, settings.enterSends, trigger, waitingAnswer],
+    [agentStatus, cancelPrompt, choices, connected, menuDismissed, menuOpen, offered, onAbort, selectCompletion, selectedIndex, send, sendBeside, setTextAndCaret, settings.enterSends, trigger, waitingAnswer],
   );
 
   const onPaste = useCallback(

@@ -283,6 +283,7 @@ export function publicPrompt(parsed: ParsedPrompt): InteractivePrompt {
     ...(parsed.default_option_indices ? { default_option_indices: parsed.default_option_indices } : {}),
     ...(parsed.default_custom_text ? { default_custom_text: parsed.default_custom_text } : {}),
     ...(parsed.fallback ? { fallback: true as const } : {}),
+    ...(parsed.can_cancel ? { can_cancel: true as const } : {}),
   };
   parsedByPublicPrompt.set(prompt, parsed);
   return prompt;
