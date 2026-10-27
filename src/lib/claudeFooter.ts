@@ -6,22 +6,24 @@ const RULE_RE = /^(?:[─━]{8,}|─{2,}\s.*─)$/;
 const SEPARATOR_RE = /\s+[│┃|]\s+/;
 /** a field that is a block-character bar and its percent (`██░░░░░░░░ 28%`) */
 const METER_RE = /^[█▉▊▋▌▍▎▏▓▒░■□▰▱]+\s*(\d{1,3})%$/;
-/** the mode row's key hint (`⏵⏵ accept edits on (shift+tab to cycle)`), which the browser has no use for */
-const CYCLE_HINT_RE = /\s*\([^)]*to cycle\)$/;
+/** the mode row's key hints (`⏵⏵ accept edits on (shift+tab to cycle) · ← 2 agents`), which the browser has no use for */
+const HINT_RE = /\s*\([^)]*to cycle\)|(?:\s*·)?\s*←\s*\d+\s+agents?\b/g;
 
 const plainOf = (line: string): string => line.replace(ANSI_RE, "").replace(OSC_RE, "").replace(/ /g, " ").trimEnd();
 
 /**
  * What Claude Code draws under its input box, as the terminal colors it: the statusLine command's
- * output and the mode row (`⏵⏵ accept edits on`). Blank rows are dropped; null when the screen shows
- * no box, or nothing under it.
+ * output and the mode row (`⏵⏵ accept edits on`). It ends at the first blank row, below which Claude
+ * lists its running agents; null when the screen shows no box, or nothing under it.
  */
 export function claudeFooterRows(screen: string): string[] | null {
   const raw = screen.split("\n").map((line) => line.replace(/\r$/, ""));
   let bottom = raw.length - 1;
   while (bottom >= 0 && !RULE_RE.test(plainOf(raw[bottom]!).trim())) bottom--;
   if (bottom < 0) return null;
-  const rows = raw.slice(bottom + 1).filter((line) => plainOf(line).trim() !== "");
+  const below = raw.slice(bottom + 1);
+  const end = below.findIndex((line) => plainOf(line).trim() === "");
+  const rows = end < 0 ? below : below.slice(0, end);
   return rows.length === 0 ? null : rows;
 }
 
@@ -106,13 +108,13 @@ function statusRuns(line: string): StatusRun[] {
   return runs;
 }
 
-/** The footer rows as the chat draws them: each field on its own in its tones, key hints left out, a bar as a meter. */
+/** The footer rows as the chat draws them: each field on its own in its tones, key hints and agent count left out, a bar as a meter. */
 export function claudeStatusParts(rows: readonly string[]): ClaudeStatusPart[] {
   const fields: StatusRun[][] = [];
   for (const row of rows) {
     let field: StatusRun[] = [];
     for (const run of statusRuns(row)) {
-      const pieces = run.text.split(SEPARATOR_RE);
+      const pieces = run.text.replace(HINT_RE, "").split(SEPARATOR_RE);
       pieces.forEach((piece, index) => {
         if (index > 0) { fields.push(field); field = []; }
         field.push({ ...run, text: piece });
@@ -121,14 +123,14 @@ export function claudeStatusParts(rows: readonly string[]): ClaudeStatusPart[] {
     fields.push(field);
   }
   return fields.flatMap((field): ClaudeStatusPart[] => {
-    const text = field.map((run) => run.text).join("").replace(CYCLE_HINT_RE, "").trim();
+    const text = field.map((run) => run.text).join("").trim();
     if (text === "") return [];
     const meter = METER_RE.exec(text);
     if (meter) {
       const tone = field.find((run) => run.text.trim() !== "")?.tone ?? null;
       return [{ kind: "meter", text: `${meter[1]}%`, percent: Math.min(100, Number(meter[1])), tone }];
     }
-    // the runs cut to the field's trimmed text, the hint's runs dropped with it
+    // the runs cut to the field's trimmed text
     const runs: StatusRun[] = [];
     let left = text.length;
     let lead = field.map((run) => run.text).join("").search(/\S/);

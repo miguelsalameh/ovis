@@ -25,6 +25,24 @@ test("the footer reads as fields in their tones, a bar as a meter, the mode row 
   ]);
 });
 
+test("the agent list Claude draws under its footer is left out", () => {
+  const agents = ["", "\u001b[0m\u001b[1m  ⏺ main\u001b[0m", "\u001b[0m\u001b[38;2;153;153;153m  ◯ general-purpose\u001b[0m  Reading prompt.ts   51s"];
+  expect(claudeFooterRows([RULE, "❯", RULE, STATUS, MODE, ...agents].join("\n"))).toEqual([STATUS, MODE]);
+});
+
+test("the mode row leaves out its key hint and agent count, keeping what sits between them", () => {
+  const withAgents = "  \u001b[0m\u001b[38;2;255;107;128m⏵⏵ bypass permissions on\u001b[0m\u001b[38;2;153;153;153m (shift+tab to cycle) · ← 2 agents\u001b[0m";
+  const withShell = "  \u001b[0m\u001b[38;2;255;107;128m⏵⏵ bypass permissions on\u001b[0m\u001b[38;2;153;153;153m · \u001b[0m\u001b[38;2;0;204;204m1 shell\u001b[0m\u001b[38;2;153;153;153m · ← 2 agents\u001b[0m";
+  expect(claudeStatusParts([withAgents])).toEqual([
+    { kind: "text", text: "⏵⏵ bypass permissions on", runs: [{ text: "⏵⏵ bypass permissions on", tone: "red", bold: false }] },
+  ]);
+  expect(claudeStatusParts([withShell])).toEqual([{ kind: "text", text: "⏵⏵ bypass permissions on · 1 shell", runs: [
+    { text: "⏵⏵ bypass permissions on", tone: "red", bold: false },
+    { text: " · ", tone: null, bold: false },
+    { text: "1 shell", tone: "cyan", bold: false },
+  ] }]);
+});
+
 test("a field keeps each of its runs' tones and weight", () => {
   const row = "\u001b[1;38;5;208m⚠\u001b[22;39m left \u001b[35m3\u001b[0m";
   expect(claudeStatusParts([row])).toEqual([{ kind: "text", text: "⚠ left 3", runs: [
