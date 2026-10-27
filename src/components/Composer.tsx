@@ -270,7 +270,7 @@ export function Composer({
   const { settings, resolvedLanguage } = useSettings();
   const mobile = useMediaQuery("(max-width: 640px), (pointer: coarse)");
   const usageEnabled = settings.showUsage && !mobile && machineId === "local" && providerForAgent(agent) !== null;
-  // Claude Code's own statusLine, as its terminal shows it, in the strip's place
+  // Claude Code's own statusLine, read from its terminal, at the strip's end
   const claudeFooter = useClaudeFooter(paneId, machineId, agent === "claude" && !mobile);
   const { report: usageReport } = useUsage(usageEnabled);
   const usage = usageEnabled && usageReport !== null ? composerUsage(usageReport.providers, agent, settings.usageOrder, settings.usageHidden) : undefined;
@@ -1452,16 +1452,17 @@ export function Composer({
         </div>
       </div>
       {/* the strip tucked under the card (t3code's composer context strip): the pane's working folder and its
-          branch, each drawn only when the caller passes it. It only names them; nothing in it is pressed */}
-      {claudeFooter !== null ? <ClaudeFooter rows={claudeFooter} /> : strip !== null && (
+          branch, each drawn only when the caller passes it, or Claude Code's own status line in the branch's place.
+          It only names them; nothing in it is pressed */}
+      {(strip !== null || claudeFooter !== null) && (
         <div className="composer-strip">
-          {strip.folder !== null && <span className="composer-strip-item composer-strip-folder" title={strip.path ?? undefined}>
+          {strip !== null && strip.folder !== null && <span className="composer-strip-item composer-strip-folder" title={strip.path ?? undefined}>
             {worktree ? <FolderGit2 aria-hidden="true" /> : <Folder aria-hidden="true" />}
             <span className="visually-hidden">{t("Working folder")}: </span>
             <span className="composer-strip-text">{strip.folder}</span>
             {worktree && <span className="composer-strip-kind">{t("Worktree")}</span>}
           </span>}
-          {strip.branch !== null && <span className="composer-strip-item composer-strip-branch" title={strip.branch}>
+          {claudeFooter !== null ? <ClaudeFooter rows={claudeFooter} /> : strip !== null && strip.branch !== null && <span className="composer-strip-item composer-strip-branch" title={strip.branch}>
             <GitBranch aria-hidden="true" />
             <span className="visually-hidden">{t("Branch")}: </span>
             <span className="composer-strip-text">{strip.branch}</span>
