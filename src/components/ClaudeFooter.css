@@ -1,32 +1,84 @@
-.claude-footer {
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 0;
-  font-family: var(--font-mono);
+/* Claude Code's footer at the strip's end, where the branch sits otherwise: its fields in the strip's
+   --text-dim, parted by a dot. A narrow strip cuts them short and keeps the folder whole, up to half
+   the strip */
+.composer-strip-item.claude-footer {
+  gap: var(--space-2);
+  margin-inline-start: auto;
+  overflow: hidden;
+}
+
+/* the strip reads at the chat's size with the status in it, the folder and its glyph too, its row one
+   chat line tall */
+.composer-strip:has(> .claude-footer) {
+  --claude-footer-row: calc(var(--fs-chat) * 1.5);
   font-size: var(--fs-chat);
 }
 
-.claude-footer-row {
+.composer-strip:has(> .claude-footer) > .composer-strip-item {
+  height: var(--claude-footer-row);
+}
+
+/* that row in the strip's height a prompt card leaves room for (PromptCard.css), in --chip-h's place */
+.prompt-dock:has(~ .composer > .composer-strip > .claude-footer) > .prompt-card {
+  --prompt-card-strip: calc(var(--fs-chat) * 1.5 + var(--space-5) + var(--space-1) + var(--hairline) - var(--space-4));
+}
+
+.composer-strip:has(> .claude-footer) .composer-strip-item svg {
+  width: var(--fs-chat);
+  height: var(--fs-chat);
+}
+
+.composer-strip-folder:has(~ .claude-footer) {
+  flex-shrink: 0;
+  max-width: 50%;
+}
+
+.claude-footer-part {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* a percent cut short says nothing */
+.claude-footer-part.is-meter {
+  flex: none;
+}
+
+.claude-footer-part + .claude-footer-part::before {
+  content: "·";
+  flex: none;
+  margin-inline-end: var(--space-1);
+}
+
+/* a context bar the status line draws in block characters, as a thin track */
+.claude-footer-meter {
+  flex: none;
+  width: calc(var(--fs-chat) * 3);
+  height: var(--space-1);
   overflow: hidden;
-  white-space: pre;
-  text-overflow: ellipsis;
+  border-radius: var(--radius-sm);
+  background: var(--border);
 }
 
-.claude-footer .is-dim {
-  opacity: 0.6;
+.claude-footer-meter > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
 }
 
-.claude-footer .is-blink {
-  animation: claude-footer-blink 1s steps(1, end) infinite;
-}
+/* the status line's colors by family, each the theme's own for it, so a Catppuccin strip draws
+   Catppuccin's pastels; a grey keeps the strip's --text-dim */
+.claude-footer [data-tone="red"] { color: var(--status-blocked); }
+.claude-footer [data-tone="orange"] { color: var(--syntax-number); }
+.claude-footer [data-tone="yellow"] { color: var(--syntax-type); }
+.claude-footer [data-tone="green"] { color: var(--status-done); }
+.claude-footer [data-tone="cyan"] { color: var(--status-working); }
+.claude-footer [data-tone="blue"] { color: var(--syntax-function); }
+.claude-footer [data-tone="purple"] { color: var(--accent); }
+.claude-footer [data-tone="pink"] { color: var(--syntax-meta); }
 
-@keyframes claude-footer-blink {
-  50% { opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .claude-footer .is-blink {
-    animation: none;
-  }
+.claude-footer .is-bold {
+  font-weight: 600;
 }
