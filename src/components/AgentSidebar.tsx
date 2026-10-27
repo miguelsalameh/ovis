@@ -17,7 +17,7 @@ import { machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
 import { useHiddenMachines } from "../lib/hiddenMachines.ts";
 import { rosterPanes } from "../lib/dagPane.ts";
-import { currentInactiveWorkspaces, inactiveWorkspaceIds, subscribeInactiveWorkspaces } from "../lib/inactiveWorkspaces.ts";
+import { inactiveWorkspaceIds } from "../lib/inactiveWorkspaces.ts";
 import { rollupStatus } from "../lib/status.ts";
 import { projectKey } from "../lib/projectColors.ts";
 import { useProjectColor } from "../lib/useProjectColor.ts";
@@ -128,7 +128,7 @@ export function AgentSidebar({ machines, selectedMachineId, selectedPaneId, stat
   const allRows = useMemo(() => [...roster.pinned, ...roster.rest], [roster]);
   // a put-away workspace's agents leave the list with it, as the workspace list judges them
   // (lib/inactiveWorkspaces.ts); the selected one stays, and pins go on reading every row
-  const inactiveKeys = useSyncExternalStore(subscribeInactiveWorkspaces, currentInactiveWorkspaces, currentInactiveWorkspaces);
+  const inactiveKeys = settings.inactiveWorkspaces;
   const active = useMemo(() => {
     const away = new Map(machines.map((machine) => {
       const panes = rosterPanes(machine.snapshot?.panes ?? [], machine.id === selectedMachineId ? selectedPaneId : null);

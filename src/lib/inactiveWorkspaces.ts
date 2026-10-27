@@ -1,51 +1,36 @@
 /**
- * The workspaces this browser keeps in a PC's Inactive group, below the rest of its list: still
- * running in herdr, only out of the way. Keyed as workspace pins are (lib/sidebarPins.ts), so an id
- * reused on another PC is not put away with the old one's. One workspace with an agent blocked on
+ * The workspaces in a PC's Inactive group, below the rest of its list: still running in herdr, only
+ * out of the way. The inactiveWorkspaces setting holds them, shared with every browser of this
+ * server. Keyed as workspace pins are (lib/sidebarPins.ts), so an id reused on another PC is not put
+ * away with the old one's. One workspace with an agent blocked on
  * the user stands with the others again until it is answered.
  */
 
 import { workspacePinKey } from "./sidebarPins.ts";
 
-const STORAGE_KEY = "ovis:inactive-workspaces";
 const COLLAPSED_KEY = (machineId: string) => `ovis:inactive-collapsed:${machineId}`;
+/** where a browser kept the group before it was a shared setting: read once, then removed */
+export const LEGACY_INACTIVE_KEY = "ovis:inactive-workspaces";
+/** a shared setting stays a short document (shared/preferences.ts) */
+export const INACTIVE_WORKSPACES_MAX = 500;
 
 function storage(): Storage | null {
   try { return typeof localStorage === "undefined" ? null : localStorage; }
   catch { return null; }
 }
 
-function load(): string[] {
-  try {
-    const value = storage()?.getItem(STORAGE_KEY);
-    if (value === undefined || value === null) return [];
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) ? [...new Set(parsed.filter((key): key is string => typeof key === "string" && key.length > 0))] : [];
-  } catch { return []; }
+/** The keys a stored or shared value holds: workspace keys, once each, the rest dropped. */
+export function sanitizeInactiveWorkspaces(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((key): key is string => typeof key === "string" && key.length > 0 && key.length <= 300))].slice(-INACTIVE_WORKSPACES_MAX);
 }
 
-let keys: string[] | null = null;
-const listeners = new Set<() => void>();
-
-export function currentInactiveWorkspaces(): string[] {
-  keys ??= load();
-  return keys;
-}
-
-export function subscribeInactiveWorkspaces(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
-
-/** Puts a workspace away or brings it back; keys of this PC's workspaces that are gone leave with the change. */
-export function toggleInactiveWorkspace(machineId: string, workspaceId: string, liveWorkspaceIds: ReadonlySet<string>): void {
+/** The keys with a workspace put away or brought back; keys of this PC's workspaces that are gone leave with the change. */
+export function toggledInactiveWorkspaces(stored: readonly string[], machineId: string, workspaceId: string, liveWorkspaceIds: ReadonlySet<string>): string[] {
   const prefix = workspacePinKey(machineId, "");
   const key = workspacePinKey(machineId, workspaceId);
-  const kept = currentInactiveWorkspaces().filter((current) => !current.startsWith(prefix) || liveWorkspaceIds.has(current.slice(prefix.length)));
-  keys = kept.includes(key) ? kept.filter((current) => current !== key) : [...kept, key];
-  try { storage()?.setItem(STORAGE_KEY, JSON.stringify(keys)); }
-  catch { /* storage denied: the group lasts for the session */ }
-  for (const listener of [...listeners]) listener();
+  const kept = stored.filter((current) => !current.startsWith(prefix) || liveWorkspaceIds.has(current.slice(prefix.length)));
+  return kept.includes(key) ? kept.filter((current) => current !== key) : [...kept, key];
 }
 
 /**
