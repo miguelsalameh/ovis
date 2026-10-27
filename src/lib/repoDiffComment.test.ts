@@ -33,12 +33,16 @@ test("an empty comment or an unknown line quotes nothing", () => {
 const FILE = ["import a", "", "const x = 1;", "export x"];
 
 test("a file comment quotes the path, the line range, the raw lines and the comment", () => {
-  expect(formatFileComment("src/a.ts", FILE, { start: 1, end: 3 }, "  why?  ")).toBe("src/a.ts lines 1-3:\n```\nimport a\n\nconst x = 1;\n```\nwhy?");
-  expect(formatFileComment("src/a.ts", FILE, { start: 4, end: 4 }, "rename")).toBe("src/a.ts line 4:\n```\nexport x\n```\nrename");
+  expect(formatFileComment("src/a.ts", FILE, { start: 1, end: 3 }, "  why?  ")).toBe("`src/a.ts` lines 1-3:\n```\nimport a\n\nconst x = 1;\n```\nwhy?");
+  expect(formatFileComment("src/a.ts", FILE, { start: 4, end: 4 }, "rename")).toBe("`src/a.ts` line 4:\n```\nexport x\n```\nrename");
+});
+
+test("a file comment never starts with the slash of an absolute path", () => {
+  expect(formatFileComment("/Users/me/a.ts", FILE, { start: 4, end: 4 }, "why?")).toBe("`/Users/me/a.ts` line 4:\n```\nexport x\n```\nwhy?");
 });
 
 test("a file comment's heading counts the lines it quotes, not the blank ones around them", () => {
-  expect(formatFileComment("a.ts", FILE, { start: 2, end: 3 }, "x")).toBe("a.ts line 3:\n```\nconst x = 1;\n```\nx");
+  expect(formatFileComment("a.ts", FILE, { start: 2, end: 3 }, "x")).toBe("`a.ts` line 3:\n```\nconst x = 1;\n```\nx");
 });
 
 test("a file comment quotes nothing without a comment or without text in the range", () => {
