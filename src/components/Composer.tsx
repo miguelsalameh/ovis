@@ -66,6 +66,8 @@ import { useT } from "../lib/i18n.ts";
 import { offersRetry, userFailure, type UserFailure } from "../lib/userError.ts";
 import { AttachmentTooLargeError } from "../lib/api.ts";
 import { modalOpen } from "../lib/focus.ts";
+import { useClaudeFooter } from "../lib/useClaudeFooter.ts";
+import { ClaudeFooter } from "./ClaudeFooter.tsx";
 
 export interface ComposerProps {
   connected: boolean;
@@ -268,6 +270,8 @@ export function Composer({
   const { settings, resolvedLanguage } = useSettings();
   const mobile = useMediaQuery("(max-width: 640px), (pointer: coarse)");
   const usageEnabled = settings.showUsage && !mobile && machineId === "local" && providerForAgent(agent) !== null;
+  // Claude Code's own statusLine, as its terminal shows it, in the strip's place
+  const claudeFooter = useClaudeFooter(paneId, machineId, agent === "claude" && !mobile);
   const { report: usageReport } = useUsage(usageEnabled);
   const usage = usageEnabled && usageReport !== null ? composerUsage(usageReport.providers, agent, settings.usageOrder, settings.usageHidden) : undefined;
   const usageWindows = usage === undefined ? [] : statusWindows(usage);
@@ -1449,7 +1453,7 @@ export function Composer({
       </div>
       {/* the strip tucked under the card (t3code's composer context strip): the pane's working folder and its
           branch, each drawn only when the caller passes it. It only names them; nothing in it is pressed */}
-      {strip !== null && (
+      {claudeFooter !== null ? <ClaudeFooter rows={claudeFooter} /> : strip !== null && (
         <div className="composer-strip">
           {strip.folder !== null && <span className="composer-strip-item composer-strip-folder" title={strip.path ?? undefined}>
             {worktree ? <FolderGit2 aria-hidden="true" /> : <Folder aria-hidden="true" />}

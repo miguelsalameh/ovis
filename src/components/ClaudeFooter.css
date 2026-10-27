@@ -1,0 +1,32 @@
+.claude-footer {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.claude-footer-row {
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.claude-footer .is-dim {
+  opacity: 0.6;
+}
+
+.claude-footer .is-blink {
+  animation: claude-footer-blink 1s steps(1, end) infinite;
+}
+
+@keyframes claude-footer-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .claude-footer .is-blink {
+    animation: none;
+  }
+}

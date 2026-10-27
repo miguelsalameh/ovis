@@ -2,7 +2,7 @@
  * Japanese for the keys only the composer files use:
  * components/Composer.tsx (with SOURCE_LABEL), components/ComposerNotices.tsx,
  * components/VoiceInput.tsx, components/SecretInput.tsx, components/TerminalInput.tsx,
- * components/PendingMessages.tsx, lib/compose.ts, components/PromptCard.tsx, lib/promptAnswer.ts.
+ * components/PendingMessages.tsx, components/ClaudeFooter.tsx, lib/compose.ts, components/PromptCard.tsx, lib/promptAnswer.ts.
  * Register and fixed terms follow ../i18n.ja.ts; a key another feature also uses goes there.
  */
 export const COMPOSER_JA: Record<string, string> = {
@@ -162,4 +162,5 @@ export const COMPOSER_JA: Record<string, string> = {
   "Enter": "Enter",
   "Not inserted: this PC has not said yet what it supports. Insert it again.": "未挿入: この PC が対応する機能をまだ知らせていません。もう一度挿入してください。",
   "Not inserted: the line holds a control character. Remove it, then insert again.": "未挿入: 入力欄に制御文字があります。削除してからもう一度挿入してください。",
+  "Claude Code status": "Claude Code のステータス",
 };

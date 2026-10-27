@@ -279,4 +279,17 @@ export function useShortcuts(actions: AppActions, enabled: boolean): void {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [actions, enabled, settings.shortcutOverrides]);
+  // back in this window, the pane's input takes the keyboard again, as focus-input gives it: unless
+  // the window came back to another field or a page in the side panel, or a touch keyboard would rise
+  useEffect(() => {
+    if (!enabled) return;
+    const onFocus = (): void => {
+      if (window.matchMedia("(pointer: coarse)").matches) return;
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement && (focused.isContentEditable || focused.matches("input, textarea, select, iframe"))) return;
+      actions.focusInput();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [actions, enabled]);
 }

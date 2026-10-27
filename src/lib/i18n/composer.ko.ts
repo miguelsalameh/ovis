@@ -2,7 +2,7 @@
  * Korean for the keys only the composer files use:
  * components/Composer.tsx (with SOURCE_LABEL), components/ComposerNotices.tsx,
  * components/VoiceInput.tsx, components/SecretInput.tsx, components/TerminalInput.tsx,
- * components/PendingMessages.tsx, lib/compose.ts, components/PromptCard.tsx, lib/promptAnswer.ts.
+ * components/PendingMessages.tsx, components/ClaudeFooter.tsx, lib/compose.ts, components/PromptCard.tsx, lib/promptAnswer.ts.
  * Register and fixed terms follow ../i18n.ko.ts; a key another feature also uses goes there.
  */
 export const COMPOSER_KO: Record<string, string> = {
@@ -162,4 +162,5 @@ export const COMPOSER_KO: Record<string, string> = {
   "Enter": "Enter",
   "Not inserted: this PC has not said yet what it supports. Insert it again.": "넣지\u00a0못했습니다: 이\u00a0PC가\u00a0아직\u00a0지원하는\u00a0기능을\u00a0알려\u00a0주지\u00a0않았습니다. 다시\u00a0넣으세요.",
   "Not inserted: the line holds a control character. Remove it, then insert again.": "넣지\u00a0못했습니다: 입력창에\u00a0제어\u00a0문자가\u00a0있습니다. 지운\u00a0뒤\u00a0다시\u00a0넣으세요.",
+  "Claude Code status": "Claude Code 상태",
 };
