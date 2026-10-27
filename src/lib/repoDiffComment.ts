@@ -44,7 +44,11 @@ export function selectionOf(range: SelectedLineRange | null): LineSelection | nu
   return range === null ? null : { start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) };
 }
 
-/** "src/a.ts lines 12-15:", the file's lines as they are, then the comment: null when nothing is selected or said. */
+/**
+ * "`src/a.ts` lines 12-15:", the file's lines as they are, then the comment: null when nothing is
+ * selected or said. The path is in backticks: a message that starts with an absolute path's `/`
+ * is taken for a slash command.
+ */
 export function formatFileComment(path: string, lines: readonly string[], selection: LineSelection, comment: string): string | null {
   const said = comment.trim();
   if (said === "") return null;
@@ -52,6 +56,6 @@ export function formatFileComment(path: string, lines: readonly string[], select
   let { start, end } = selection;
   while (start <= end && (lines[start - 1] ?? "").trim() === "") start += 1;
   while (end >= start && (lines[end - 1] ?? "").trim() === "") end -= 1;
-  const quote = formatTerminalQuote({ label: path, range: { start: start - 1, end: end - 1 }, text: lines.slice(start - 1, end).join("\n") });
+  const quote = formatTerminalQuote({ label: `\`${path}\``, range: { start: start - 1, end: end - 1 }, text: lines.slice(start - 1, end).join("\n") });
   return quote === null ? null : `${quote}\n${said}`;
 }
