@@ -1,0 +1,14 @@
+/* a project color's sample (lib/projectColors.ts): in its menu, the item that opens it, and the header */
+.project-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: var(--radius-pill);
+}
+
+.context-workspace {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

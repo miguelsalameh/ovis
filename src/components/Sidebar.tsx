@@ -1,7 +1,8 @@
-import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type AnimationEvent, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, GitBranch, History, Layers, ListChecks, Pencil, Pin, PinOff, Plus, Terminal, Trash2, TriangleAlert, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type AnimationEvent, type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, GitBranch, History, Layers, ListChecks, Palette, Pencil, Pin, PinOff, Plus, Terminal, Trash2, TriangleAlert, X } from "lucide-react";
 
 import "./Sidebar.css";
+import "./ProjectDot.css";
 
 import type { AgentStatus, PaneInfo, PlanSummary, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
 import { paneTitle } from "../../shared/notify-policy.ts";
@@ -21,6 +22,7 @@ import { useT } from "../lib/i18n.ts";
 import { userErrorMessage } from "../lib/userError.ts";
 import { rosterPanes } from "../lib/dagPane.ts";
 import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
+import { currentProjectColors, hueColor, PROJECT_HUES, projectKey, setProjectHue, useProjectColor } from "../lib/projectColors.ts";
 import { filterWorkspaceGroups, machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
 import { useSettings } from "../lib/settings.ts";
@@ -171,6 +173,8 @@ export function onRowContextMenu(event: MouseEvent<HTMLElement>, toggle: (anchor
 
 /** The row whose ⋯ menu is open: a workspace, seen through the pane its row shows. */
 interface MenuState { anchor: HTMLElement; point?: { x: number; y: number }; previousFocus?: HTMLElement | null; workspace: WorkspaceInfo; title: string; place: string }
+/** the project color menu a workspace's "Project color…" opens, at the same place */
+interface ColorMenuState { anchor: HTMLElement; point?: { x: number; y: number }; previousFocus?: HTMLElement | null; key: string; title: string }
 interface ConfirmState { title: string; body: string; action?: string; run: () => Promise<void>; escalation?: { label: string; code: string; run: () => Promise<void> } }
 
 export interface SidebarProps {
@@ -188,10 +192,12 @@ export interface SidebarProps {
  */
 export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = false }: SidebarProps) {
   const t = useT();
-  const { settings } = useSettings();
+  const { settings, resolvedEntry } = useSettings();
   const twoLine = settings.sidebarRows === "two";
   const machineId = useMachineId();
   const activity = useSidebarActivity();
+  const projectColor = useProjectColor();
+  const [colorMenu, setColorMenu] = useState<ColorMenuState | null>(null);
   const { closeWorkspace, listWorktrees, moveWorkspace, removeWorktree, renameWorkspace } = useMachineApi();
   // the row menu's Earlier sessions needs the PC's bridge to list them (lib/useSessionHistoryOffered.ts)
   const historyOffered = useSessionHistoryOffered(online);
@@ -446,6 +452,8 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
         ? { id: "unpin-workspace", label: t("Unpin workspace"), icon: PinOff, run: () => togglePin(state) }
         : { id: "pin-workspace", label: t("Pin workspace"), icon: Pin, run: () => togglePin(state) },
       { id: "rename-workspace", label: t("Rename workspace"), icon: Pencil, run: () => beginWorkspaceRename(workspace) },
+      { id: "project-color", label: t("Project color…"), icon: Palette, glyph: <span className="project-swatch" style={{ background: projectColor(projectKey(machineId, workspace)) }} aria-hidden="true" />,
+        run: () => setColorMenu({ anchor: state.anchor, point: state.point, previousFocus: state.previousFocus, key: projectKey(machineId, workspace), title: state.title }) },
       // the folder's earlier sessions, listed for the agent of the pane the row opens
       ...(historyOffered && !watching ? [{ id: "session-history", label: t("Earlier sessions…"), icon: History, run: () => actions.openSessionHistory({ machineId, workspaceId: workspace.workspace_id, agent: (panes.length > 0 ? currentPane(workspace, panes) : null)?.agent ?? null }) }] : []),
       { ...closeItem, label: t(sameRepo.length > 0 ? "Close group" : "Close workspace"), divider: false },
@@ -674,8 +682,10 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
     const unfolded = children.length > 0 && repoKey !== undefined && !collapsed;
     const face = <WorkspaceFavicon root={workspace.worktree?.checkout_path ?? pane.cwd ?? null} fallback={<span className="sidebar-mark workspace-folder" aria-hidden="true">{unfolded ? <FolderOpen /> : <Folder />}</span>} />;
     const toggleMenu = (anchor: HTMLElement, point?: { x: number; y: number }, previousFocus?: HTMLElement | null): void => setMenu(menuOpen ? null : { anchor, point, previousFocus, workspace, title: rowTitle, place: [branchNote, ...paths].filter(Boolean).join(" · ") || workspace.label });
+    const color = projectColor(projectKey(machineId, workspace));
     return <li
-      className={`workspace workspace-group pane-item${selected ? " is-selected" : ""}${collapsed ? " is-collapsed" : ""}${context ? " is-filter-context" : ""}${dragWorkspaceId === workspace.workspace_id ? " is-dragging" : ""}${touchDrag?.source === workspace.workspace_id ? " is-lifted" : ""}`}
+      style={color === undefined ? undefined : { "--project-color": color } as CSSProperties}
+      className={`workspace workspace-group pane-item has-project-color${selected ? " is-selected" : ""}${collapsed ? " is-collapsed" : ""}${context ? " is-filter-context" : ""}${dragWorkspaceId === workspace.workspace_id ? " is-dragging" : ""}${touchDrag?.source === workspace.workspace_id ? " is-lifted" : ""}`}
       key={workspace.workspace_id}
       data-workspace={workspace.workspace_id}
       data-branch={branchTitle ?? undefined}
@@ -812,6 +822,16 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
         </>
       </nav>
       {menu && <RowMenu anchor={menu.anchor} point={menu.point} restoreFocusTo={menu.previousFocus} title={menu.title} subtitle={menu.place} items={menuItems(menu)} onClose={closeMenu} />}
+      {colorMenu && (() => {
+        const picked = currentProjectColors()[colorMenu.key];
+        // in PROJECT_HUES' order, each a literal key for the dictionaries' check
+        const hueWords = [t("Red"), t("Orange"), t("Yellow"), t("Lime"), t("Green"), t("Teal"), t("Cyan"), t("Sky"), t("Blue"), t("Violet"), t("Magenta"), t("Pink")];
+        const swatch = (background: string | undefined) => <span className="project-swatch" style={{ background }} aria-hidden="true" />;
+        return <RowMenu anchor={colorMenu.anchor} point={colorMenu.point} restoreFocusTo={colorMenu.previousFocus} title={t("Project color")} subtitle={colorMenu.title} onClose={() => setColorMenu(null)} items={[
+          { id: "automatic", label: t("Automatic"), icon: Palette, current: picked === undefined, run: () => setProjectHue(colorMenu.key, null) },
+          ...PROJECT_HUES.map((hue, index) => ({ id: `hue-${index}`, label: hueWords[index] ?? hue.name, icon: Palette, glyph: swatch(hueColor(index, resolvedEntry.mode)), current: picked === index, divider: index === 0, run: () => setProjectHue(colorMenu.key, index) })),
+        ]} />;
+      })()}
       {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.action ?? t("Close")} onConfirm={confirm.run} escalation={confirm.escalation} onClose={() => setConfirm(null)} />}
       {worktreeDialog && <WorktreeDialog mode={worktreeDialog.mode} workspace={worktreeDialog.workspace} onClose={() => setWorktreeDialog(null)} onOpened={(opened) => {
         rememberOpened(opened);
