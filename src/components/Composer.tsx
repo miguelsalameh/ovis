@@ -55,6 +55,7 @@ import { paneStatus } from "../lib/status.ts";
 import { modelLabel } from "../lib/modelName.ts";
 import { useFacesArrived } from "../lib/fontFaces.ts";
 import { activeTrigger, applyCompletion, type ActiveTrigger } from "../lib/mentions.ts";
+import { NO_RECALL, recallKey, type PromptRecall } from "../lib/promptRecall.ts";
 import { resolveComposerMenuActiveItemId } from "../lib/composerMenuHighlight.ts";
 import { quickReplyButtons, useSettings } from "../lib/settings.ts";
 import { composerUsage, formatPercent, formatResetIn, HIGH_PERCENT, meterPercent, meterText, providerForAgent, statusWindows, usageName, useUsage, windowLabel } from "../lib/usage.ts";
@@ -93,6 +94,8 @@ export interface ComposerProps {
   suggestion?: string | null;
   /** a cancelled send the agent put back in its input box: the empty box takes it again, for editing and resending */
   restored?: string | null;
+  /** the texts sent in this pane, newest last: ArrowUp in the empty box walks back through them */
+  sentPrompts?: readonly string[];
   /** an empty chat's greeting: it stands over the composer's column and takes no row of its own */
   greeting?: ReactNode;
   /** the pane's notices over the input card (PaneTerminal builds them): rows of its own, above the replies */
@@ -121,6 +124,7 @@ export interface ComposerProps {
   onUploadImage: (file: File) => Promise<string>;
 }
 
+const NO_PROMPTS: readonly string[] = [];
 const UPLOADS_AT_ONCE = 3;
 /** files one paste, pick or drop takes; the rest are left out with a note */
 const ATTACH_LIMIT = 100;
@@ -247,6 +251,7 @@ export function Composer({
   waitingAnswer = null,
   suggestion = null,
   restored = null,
+  sentPrompts = NO_PROMPTS,
   greeting = null,
   notices = null,
   role = "interact",
@@ -300,6 +305,8 @@ export function Composer({
   const caretRef = useRef(caret);
   /** the restored text the box was filled with: only that fill is ever cleared, never the user's own typing */
   const filledFrom = useRef<string | null>(null);
+  /** the sent prompt ArrowUp last brought back; it lives only while the box holds exactly that text */
+  const recall = useRef<PromptRecall>(NO_RECALL);
   const commands = usePaneCommands(paneId, agent);
   const [files, setFiles] = useState<string[]>([]);
   /** the file list could not be read: said in the menu, never drawn as "no matches" */
@@ -954,6 +961,23 @@ export function Composer({
         setMenuDismissed(true);
         return;
       }
+      // ArrowUp in the empty box recalls sent text only: a box holding an attachment is not empty
+      if (attachments.length === 0 && !menuOpen) {
+        const box = event.currentTarget;
+        const step = recallKey(recall.current, sentPrompts, {
+          key: event.key,
+          modified: event.shiftKey || event.altKey || event.ctrlKey || event.metaKey,
+          text: textRef.current,
+          caret: box.selectionStart,
+          collapsed: box.selectionStart === box.selectionEnd,
+        });
+        if (step.handled) {
+          event.preventDefault();
+          recall.current = step.state;
+          if (step.text !== textRef.current) setTextAndCaret(step.text, step.text.length);
+          return;
+        }
+      }
       // a draft puts Send where Stop was: Escape is then the Stop the agent's own input has
       if (event.key === "Escape" && connected && agentStatus === "working" && textRef.current.trim().length > 0) {
         event.preventDefault();
@@ -988,7 +1012,7 @@ export function Composer({
       event.preventDefault();
       send();
     },
-    [agentStatus, choices, connected, menuDismissed, menuOpen, offered, onAbort, selectCompletion, selectedIndex, send, sendBeside, setTextAndCaret, settings.enterSends, trigger, waitingAnswer],
+    [agentStatus, attachments.length, choices, connected, menuDismissed, menuOpen, offered, onAbort, selectCompletion, selectedIndex, send, sendBeside, setTextAndCaret, sentPrompts, settings.enterSends, trigger, waitingAnswer],
   );
 
   const onPaste = useCallback(
