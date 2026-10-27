@@ -31,11 +31,13 @@ export interface ChatTimelineProps<Row extends ChatTimelineRow> {
   onScroll: () => void;
   /** The reader opened something in a row (a tool, a folded block, a whole output): they read there. */
   onOpen: () => void;
+  /** The Markdown text of a selection wholly inside the rows, or null: what the reader can quote. */
+  onSelect: (text: string | null) => void;
   renderRow: (row: Row, index: number) => ReactNode;
 }
 
 /** One scroll owner; selected and focused rows stay real DOM nodes outside its window. */
-export function ChatTimeline<Row extends ChatTimelineRow>({ rows, scope, source, scroller, listRef, following, manualLayout, smoothFollow, memories, header, footer, label, onScroll, onOpen, renderRow }: ChatTimelineProps<Row>) {
+export function ChatTimeline<Row extends ChatTimelineRow>({ rows, scope, source, scroller, listRef, following, manualLayout, smoothFollow, memories, header, footer, label, onScroll, onOpen, onSelect, renderRow }: ChatTimelineProps<Row>) {
   const [selectionKeys, setSelectionKeys] = useState<string[]>([]);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   useLayoutEffect(() => {
@@ -79,6 +81,10 @@ export function ChatTimeline<Row extends ChatTimelineRow>({ rows, scope, source,
       }
       const keys = last >= first ? rowKeys.slice(first, last + 1) : [];
       setSelectionKeys((previous) => previous.length === keys.length && previous.every((key, index) => key === keys[index]) ? previous : keys);
+      // both ends in a row: a selection that starts or ends in the header, a card or the footer is no quote
+      const range = selection && last >= first && selection.rangeCount === 1 ? selection.getRangeAt(0) : null;
+      const inRows = range !== null && rowFor(range.startContainer) !== null && rowFor(range.endContainer) !== null;
+      onSelect(inRows ? chatSelectionClipboardPayload(selection!, node)?.text ?? null : null);
     };
     const focusChanged = () => setFocusKey(rowFor(document.activeElement));
     const focusOut = () => queueMicrotask(focusChanged);
@@ -118,7 +124,7 @@ export function ChatTimeline<Row extends ChatTimelineRow>({ rows, scope, source,
       node.removeEventListener("click", interaction, true);
       node.removeEventListener("copy", copy);
     };
-  }, [scroller, positions, rowKeys, onOpen, following, manualLayout]);
+  }, [scroller, positions, rowKeys, onOpen, onSelect, following, manualLayout]);
 
   // A glide aims at the end it saw; content that grew meanwhile leaves it short. Where it stops, a
   // reader still following is put at the end at once.

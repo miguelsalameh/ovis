@@ -189,6 +189,8 @@ export interface ChatViewProps {
   onRestored?: (paneId: string, restored: string | null) => void;
   /** the texts of the user turns read so far, newest last, repeats collapsed; null when the pane is left behind */
   onSentPrompts?: (paneId: string, prompts: string[] | null) => void;
+  /** the Markdown text the reader has selected in the transcript, or null: PaneTerminal offers to quote it */
+  onQuotable?: (paneId: string, text: string | null) => void;
   /** bumped after the composer answered: read the prompt again now */
   promptRefreshKey?: number;
   /** a typed pick of an approval's option, waiting in the card for Confirm */
@@ -1140,7 +1142,7 @@ function TerminalFallback({ paneId, visible }: { paneId: string; visible: boolea
 }
 
 // the app re-renders on every pane-status and poll; an unchanged transcript sits those out
-export const ChatView = memo(function ChatView({ paneId, presentationKey, finishEpoch, finishId, active = true, visible: paneVisible = true, pageScroll, refreshKey, invalidationKey = 0, onConversationWatch, conversationPushes = false, onTerminalOutput, sentKey = 0, localSend, navigation, connected, ended, agent, agentStatus, onMetadata, onRead, greeted = false, onPrompt, onSuggestion, onRestored, onSentPrompts, promptRefreshKey = 0, pendingAnswer = null, onPendingAnswerDone, promptDock = null, onPromptAnswered, title = null, onOpenTerminal, covered = false, peek = null, onCommandScreenClosed, onOutcomes, interactive = false, onRewindInTerminal, cwd = null }: ChatViewProps) {
+export const ChatView = memo(function ChatView({ paneId, presentationKey, finishEpoch, finishId, active = true, visible: paneVisible = true, pageScroll, refreshKey, invalidationKey = 0, onConversationWatch, conversationPushes = false, onTerminalOutput, sentKey = 0, localSend, navigation, connected, ended, agent, agentStatus, onMetadata, onRead, greeted = false, onPrompt, onSuggestion, onRestored, onSentPrompts, onQuotable, promptRefreshKey = 0, pendingAnswer = null, onPendingAnswerDone, promptDock = null, onPromptAnswered, title = null, onOpenTerminal, covered = false, peek = null, onCommandScreenClosed, onOutcomes, interactive = false, onRewindInTerminal, cwd = null }: ChatViewProps) {
   const t = useT();
   const { fetchPaneConversation, peekPaneConversation, fetchPanePromptState, fetchPaneTranscript } = useMachineApi();
   const { settings } = useSettings();
@@ -1203,6 +1205,9 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
   // is filtered out of the rendered turns (the terminal shows no sent turn for it either)
   const onRestoredRef = useRef(onRestored);
   onRestoredRef.current = onRestored;
+  const onQuotableRef = useRef(onQuotable);
+  onQuotableRef.current = onQuotable;
+  const reportQuotable = useCallback((text: string | null) => onQuotableRef.current?.(paneId, text), [paneId]);
   const [restored, setRestored] = useState<string | null>(null);
   const onSentPromptsRef = useRef(onSentPrompts);
   onSentPromptsRef.current = onSentPrompts;
@@ -1650,8 +1655,8 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
     return () => onPrompt?.(paneId, null);
   }, [onPrompt, paneId, prompt]);
 
-  // a pane left behind keeps no suggestion and no restored send
-  useEffect(() => () => { onSuggestionRef.current?.(paneId, null); onRestoredRef.current?.(paneId, null); }, [paneId]);
+  // a pane left behind keeps no suggestion, no restored send and no quotable selection
+  useEffect(() => () => { onSuggestionRef.current?.(paneId, null); onRestoredRef.current?.(paneId, null); onQuotableRef.current?.(paneId, null); }, [paneId]);
 
   // away from the page, the prompt is not read: it can be answered in the terminal and asked
   // again unseen, so a typed pick waiting for Confirm does not outlive the page being hidden
@@ -2201,6 +2206,7 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
       label={logLabel}
       onScroll={onScroll}
       onOpen={readOpened}
+      onSelect={reportQuotable}
       renderRow={renderTurn}
     /> : <div className="chat-view" ref={scroller} onScroll={onScroll} role="log" aria-live="polite" aria-label={logLabel}>
       <div className="chat-transcript" data-conversation-source={state.conversationSource}>

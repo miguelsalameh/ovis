@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { appendQuote, formatTerminalQuote, quoteHeading, quotedText } from "./terminalQuote.ts";
+import { appendQuote, formatChatQuote, formatTerminalQuote, quoteHeading, quotedText } from "./terminalQuote.ts";
 
 describe("terminal quote", () => {
   test("names the pane and counts lines from 1", () => {
@@ -29,5 +29,10 @@ describe("terminal quote", () => {
     expect(appendQuote("why?\n", "Q", 100)).toBe("why?\n\nQ\n");
     expect(appendQuote("why?\n\n", "Q", 100)).toBe("why?\n\nQ\n");
     expect(appendQuote("why?", "Q", 5)).toBeNull();
+  });
+
+  test("a chat selection becomes a Markdown blockquote", () => {
+    expect(formatChatQuote("\n\nFirst\r\n\n- item\n")).toBe("> First\n>\n> - item");
+    expect(formatChatQuote("  \n")).toBeNull();
   });
 });
