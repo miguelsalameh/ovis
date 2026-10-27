@@ -975,6 +975,8 @@ export function Composer({
           event.preventDefault();
           recall.current = step.state;
           if (step.text !== textRef.current) setTextAndCaret(step.text, step.text.length);
+          // a recalled `/command` would open the menu, which then takes the next arrow
+          setMenuDismissed(true);
           return;
         }
       }
