@@ -3,7 +3,7 @@
 # This checkout is a personal fork
 
 Everything AGENTS.md says is upstream's and still holds. This part covers the fork's own workflow.
-It lives on the `local` branch only and never goes into a PR.
+It lives on the `local` branch only.
 
 ## Remotes and branches
 
@@ -13,8 +13,8 @@ It lives on the `local` branch only and never goes into a PR.
 - `local` is the version that runs: an upstream release tag (now v0.4.18) with each feature branch
   merged in. The herdr plugin is linked to this checkout and serves `dist/` on `127.0.0.1:7317`.
   The plugin's updater only moves a checkout on `main`, so `local` never updates itself.
-- Each change gets its own branch (`feat/…`, `fix/…`), cut from the tag `local` is on, so it can
-  become its own upstream PR. Never commit a feature straight onto `local`; only fork-only files
+- Each change gets its own branch (`feat/…`, `fix/…`), cut from the tag `local` is on, so it stays
+  one change of its own. Never commit a feature straight onto `local`; only fork-only files
   like this one go there.
 
 ## Making a change
@@ -45,25 +45,12 @@ stopped, then `herdr plugin action invoke devswha.ovis.start`. Starting before t
 hits the supervisor lock. Check that `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7317/`
 prints 200.
 
-## Opening an upstream PR
+## Upstream
 
-Upstream's [CONTRIBUTING.md](CONTRIBUTING.md) decides; these are the steps it implies here.
-
-- Ask the user before opening any issue or PR: both are public.
-- A feature needs a [feature request](https://github.com/devswha/ovis/issues/new?template=feature_request.yml)
-  and a maintainer's yes before the PR. A narrow convenience or a new setting is likely declined.
-  A small fix can go straight to a PR.
-- Bring the branch up to date: `git fetch upstream`, `git rebase upstream/main`, then
-  `git push --force-with-lease origin <branch>`. Force-push only the fork's own feature branch,
-  never `local`.
-- The branch has to stand alone on `upstream/main`: no code from other local features. A change
-  that builds on another (the composer pill on the Claude status line) waits for that one, or
-  goes in its PR as its own commit.
-- `bun run check fast` passes. Add `bun run check full` when `server/` or `shared/` changed.
-- `gh pr create --repo devswha/ovis --base main --head miguelsalameh:<branch>`, titled
-  `type(scope): summary`, with the template's two sections: Change (with the issue link for a
-  feature) and Validation (the checks run). Open it ready for review, not as a draft.
-- herdr's own repository takes no unsolicited PRs. herdr work stays on miguelsalameh/herdr.
+- Never open a PR on devswha/ovis, or on herdr's own repository. The user's call: changes stay on
+  this fork. Do not offer one or prepare one.
+- Keep each branch standing alone on its tag anyway: a branch that holds only its own change is
+  easy to merge into `local` again after an upstream update.
 
 ## Updating from upstream
 
@@ -78,7 +65,7 @@ Upstream's [CONTRIBUTING.md](CONTRIBUTING.md) decides; these are the steps it im
 5. Restart the server (above), check the 200, and reload the window.
 6. Replace every `v0.4.18` in this file with the new tag, commit, and `git push origin local`.
 7. A feature branch upstream has merged can go: `git branch -D` it and delete it on `origin`.
-   The others keep their old base until they go to a PR, which rebases them.
+   The others keep their old base.
 
 If the merge goes wrong, `git merge --abort`. The last good `local` is also on `origin`. A new
 Ovis release may need a newer herdr: its CHANGELOG.md entry says so.
