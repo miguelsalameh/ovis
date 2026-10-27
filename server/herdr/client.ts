@@ -1,4 +1,5 @@
 import { stripVTControlCharacters } from "node:util";
+import type { Socket } from "bun";
 import { ConnectionDiagnostics, transportFailureCode } from "../connection-diagnostics.ts";
 import type {
   AgentIntegration,
@@ -274,9 +275,33 @@ export async function herdrRpc(
       const limit = LARGE_REPLY_METHODS.has(method) ? LARGE_REPLY_BYTES : LINE_BYTES;
       const onData = makeLineReader(limit, handleLine, (bytes) => invalid(`over the ${limit}-byte line limit`, bytes));
 
+      // the request is written as the socket opens, in open() below: written a tick later, herdr's
+      // answer comes ~100ms late (measured on herdr 0.9.5); then() still covers a socket it saw first
+      let opened = false;
+      const send = (sock: Socket<undefined>) => {
+        if (opened) return;
+        opened = true;
+        connectedAt = performance.now();
+        socket = sock;
+        if (settled) {
+          try {
+            sock.end();
+          } catch {
+            /* already gone */
+          }
+          return;
+        }
+        if (guard && !guard()) {
+          finish(() => reject(new HerdrError("cancelled", `herdr ${method} was not sent: the sender may no longer send`)));
+          return;
+        }
+        sock.write(`${JSON.stringify({ id, method, params })}\n`);
+      };
+
       Bun.connect({
         unix: socketAddress(socketPath),
         socket: {
+          open: send,
           data(_sock, chunk) {
             onData(chunk);
           },
@@ -288,23 +313,7 @@ export async function herdrRpc(
           },
         },
       })
-        .then((sock) => {
-          connectedAt = performance.now();
-          socket = sock;
-          if (settled) {
-            try {
-              sock.end();
-            } catch {
-              /* already gone */
-            }
-            return;
-          }
-          if (guard && !guard()) {
-            finish(() => reject(new HerdrError("cancelled", `herdr ${method} was not sent: the sender may no longer send`)));
-            return;
-          }
-          sock.write(`${JSON.stringify({ id, method, params })}\n`);
-        })
+        .then(send)
         .catch((err: Error) => {
           finish(() =>
             reject(new HerdrError("connect_failed", `cannot reach herdr at ${socketPath}: ${err.message}`)),
