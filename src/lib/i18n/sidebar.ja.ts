@@ -53,4 +53,7 @@ export const SIDEBAR_JA: Record<string, string> = {
   "Collapse": "折りたたむ",
   "Expand": "展開",
   "Shell": "シェル",
+  "Inactive": "非アクティブ",
+  "Move to Inactive": "非アクティブに移動",
+  "Make active": "アクティブに戻す",
 };

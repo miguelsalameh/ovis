@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type AnimationEvent, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, GitBranch, History, Layers, ListChecks, Pencil, Pin, PinOff, Plus, Terminal, Trash2, TriangleAlert, X } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, GitBranch, History, Layers, ListChecks, Pencil, Pin, PinOff, Plus, Terminal, Trash2, TriangleAlert, X } from "lucide-react";
 
 import "./Sidebar.css";
 
@@ -21,6 +21,7 @@ import { useT } from "../lib/i18n.ts";
 import { userErrorMessage } from "../lib/userError.ts";
 import { rosterPanes } from "../lib/dagPane.ts";
 import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
+import { currentInactiveWorkspaces, inactiveWorkspaceIds, isInactiveWorkspace, saveInactiveCollapsed, storedInactiveCollapsed, subscribeInactiveWorkspaces, toggleInactiveWorkspace } from "../lib/inactiveWorkspaces.ts";
 import { filterWorkspaceGroups, machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
 import { useSettings } from "../lib/settings.ts";
@@ -316,12 +317,20 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
   // lib/preferencesSync.ts); their moves change pins, while the rest change herdr's order
   const pins = useSyncExternalStore(subscribeSidebarPins, currentSidebarPins, currentSidebarPins);
   const pinnedIds = useMemo(() => pinnedWorkspaceIds(pins, machineId), [pins, machineId]);
-  const shownGroups = useMemo(() => splitPinnedGroups(worktreeGroups, pinnedIds, (workspace) => workspace.workspace_id), [worktreeGroups, pinnedIds]);
+  // put-away workspaces stand below the rest in a group of their own, out of pins and moves, until
+  // one has an agent blocked on the user (lib/inactiveWorkspaces.ts)
+  const inactiveKeys = useSyncExternalStore(subscribeInactiveWorkspaces, currentInactiveWorkspaces, currentInactiveWorkspaces);
+  const inactiveIds = useMemo(() => inactiveWorkspaceIds(inactiveKeys, machineId, orderedWorkspaces.map((workspace) => workspace.workspace_id),
+    (id) => rollupStatus(roster.filter((pane) => pane.workspace_id === id).map((pane) => activity.status(machineId, pane))) === "blocked"),
+  [inactiveKeys, machineId, orderedWorkspaces, roster, activity]);
+  const parked = useMemo(() => splitPinnedGroups(worktreeGroups, inactiveIds, (workspace) => workspace.workspace_id), [worktreeGroups, inactiveIds]);
+  const [inactiveCollapsed, setInactiveCollapsed] = useState(() => storedInactiveCollapsed(machineId));
+  const shownGroups = useMemo(() => splitPinnedGroups(parked.rest, pinnedIds, (workspace) => workspace.workspace_id), [parked.rest, pinnedIds]);
   // under a filter only the kept rows are drawn, in the same order, in the same groups and cards; pins, folds
   // and herdr's order are read from the whole roster as before, and a move waits until the filter is cleared
-  const visibleGroups = useMemo(() => filtered === null ? shownGroups : { pinned: filterWorkspaceGroups(shownGroups.pinned, filtered.workspaces), rest: filterWorkspaceGroups(shownGroups.rest, filtered.workspaces) }, [shownGroups, filtered]);
+  const visibleGroups = useMemo(() => filtered === null ? { ...shownGroups, inactive: parked.pinned } : { pinned: filterWorkspaceGroups(shownGroups.pinned, filtered.workspaces), rest: filterWorkspaceGroups(shownGroups.rest, filtered.workspaces), inactive: filterWorkspaceGroups(parked.pinned, filtered.workspaces) }, [shownGroups, parked.pinned, filtered]);
   // a pinned head's worktrees remain outside the card, but cannot move away from their repository
-  const fixedIds = useMemo(() => new Set([...pinnedGroupIds(worktreeGroups, pinnedIds, (workspace) => workspace.workspace_id)].filter((id) => !pinnedIds.includes(id))), [worktreeGroups, pinnedIds]);
+  const fixedIds = useMemo(() => new Set([...[...pinnedGroupIds(worktreeGroups, pinnedIds, (workspace) => workspace.workspace_id)].filter((id) => !pinnedIds.includes(id)), ...inactiveIds]), [worktreeGroups, pinnedIds, inactiveIds]);
   const movableGroups = shownGroups.rest.filter((group) => !fixedIds.has(group.workspace.workspace_id));
   // a pin moves the row to the other list, so React draws it anew: the row that had the focus gets it back
   const refocusRow = useRef<string | null>(null);
@@ -330,7 +339,7 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
     if (id === null) return;
     refocusRow.current = null;
     workspaceRoot.current?.querySelector<HTMLElement>(`.workspace-group[data-workspace="${CSS.escape(id)}"] > .workspace-header .workspace-select`)?.focus({ preventScroll: true });
-  }, [pins]);
+  }, [pins, inactiveKeys]);
   const togglePin = (state: MenuState): void => {
     const id = state.workspace.workspace_id;
     const back = state.previousFocus === undefined ? state.anchor : state.previousFocus;
@@ -338,6 +347,14 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
     // pins of workspaces gone from this PC leave with a change of the user's, never by themselves
     const live = new Set(snapshot?.workspaces.map((workspace) => workspace.workspace_id) ?? []);
     setSidebarPins(toggleSidebarPin(pruneWorkspacePins(pins, machineId, live), workspacePinKey(machineId, id)));
+  };
+  const toggleInactive = (state: MenuState): void => {
+    const id = state.workspace.workspace_id;
+    const back = state.previousFocus === undefined ? state.anchor : state.previousFocus;
+    if (back?.closest(`.workspace-group[data-workspace="${CSS.escape(id)}"]`)) refocusRow.current = id;
+    // a workspace put away while its group is folded would vanish: the group opens to show where it went
+    if (!isInactiveWorkspace(inactiveKeys, machineId, id) && inactiveCollapsed) { setInactiveCollapsed(false); saveInactiveCollapsed(machineId, false); }
+    toggleInactiveWorkspace(machineId, id, new Set(snapshot?.workspaces.map((workspace) => workspace.workspace_id) ?? []));
   };
 
   useLayoutEffect(() => {
@@ -445,6 +462,9 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
       pinned
         ? { id: "unpin-workspace", label: t("Unpin workspace"), icon: PinOff, run: () => togglePin(state) }
         : { id: "pin-workspace", label: t("Pin workspace"), icon: Pin, run: () => togglePin(state) },
+      isInactiveWorkspace(inactiveKeys, machineId, workspace.workspace_id)
+        ? { id: "make-active", label: t("Make active"), icon: ArchiveRestore, run: () => toggleInactive(state) }
+        : { id: "make-inactive", label: t("Move to Inactive"), icon: Archive, run: () => toggleInactive(state) },
       { id: "rename-workspace", label: t("Rename workspace"), icon: Pencil, run: () => beginWorkspaceRename(workspace) },
       // the folder's earlier sessions, listed for the agent of the pane the row opens
       ...(historyOffered && !watching ? [{ id: "session-history", label: t("Earlier sessions…"), icon: History, run: () => actions.openSessionHistory({ machineId, workspaceId: workspace.workspace_id, agent: (panes.length > 0 ? currentPane(workspace, panes) : null)?.agent ?? null }) }] : []),
@@ -806,6 +826,23 @@ export function Sidebar({ snapshot, online, selectedPaneId, actions, watching = 
             <ul className="workspace-list workspace-list-pinned sidebar-pinned" aria-label={t("Pinned")}>{visibleGroups.pinned.map(renderGroup)}</ul>
           </>}
           <ul className="workspace-list">{visibleGroups.rest.map(renderGroup)}</ul>
+          {(() => {
+            const withPanes = visibleGroups.inactive.filter(({ workspace }) => roster.some((pane) => pane.workspace_id === workspace.workspace_id));
+            if (withPanes.length === 0) return null;
+            // a filter shows its matches in a folded group too; a fold keeps the selected workspace in view
+            const open = !inactiveCollapsed || filtered !== null;
+            const shown = open ? withPanes : withPanes.filter(({ workspace }) => roster.some((pane) => pane.workspace_id === workspace.workspace_id && pane.pane_id === selectedPaneId));
+            return <>
+              <button type="button" className="sidebar-inactive-toggle" aria-expanded={open} disabled={filtered !== null}
+                onClick={() => { setInactiveCollapsed(open); saveInactiveCollapsed(machineId, open); }}>
+                {open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                <Archive aria-hidden="true" />
+                <span>{t("Inactive")}</span>
+                <span className="sidebar-inactive-count">{withPanes.length}</span>
+              </button>
+              {shown.length > 0 && <ul className="workspace-list workspace-list-inactive" aria-label={t("Inactive")}>{shown.map(renderGroup)}</ul>}
+            </>;
+          })()}
           {inlineError && inlineError.workspaceId === undefined && (
             <p className="sidebar-inline-error" role="alert">{inlineError.message}{inlineError.detail !== null && <><br /><code>{inlineError.detail}</code></>}</p>
           )}

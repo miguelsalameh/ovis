@@ -53,4 +53,7 @@ export const SIDEBAR_KO: Record<string, string> = {
   "Collapse": "접기",
   "Expand": "펼치기",
   "Shell": "셸",
+  "Inactive": "비활성",
+  "Move to Inactive": "비활성으로 이동",
+  "Make active": "활성으로 되돌리기",
 };
