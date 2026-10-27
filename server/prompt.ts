@@ -370,11 +370,16 @@ export function parseInteractivePrompt(agent: string, screen: string, omoAsk: Om
 
 class InvalidAnswer extends Error {}
 
-export function answerKeys(prompt: InteractivePrompt, answer: Pick<PromptAnswer, "option_index" | "option_indices" | "custom_text">): AnswerStep[] {
+export function answerKeys(prompt: InteractivePrompt, answer: Pick<PromptAnswer, "option_index" | "option_indices" | "custom_text" | "cancel">): AnswerStep[] {
   const parsed = parsedByPublicPrompt.get(prompt);
   if (!parsed) throw new InvalidAnswer("The prompt was not produced by parseInteractivePrompt.");
-  const supplied = [answer.option_index !== undefined, answer.option_indices !== undefined, answer.custom_text !== undefined].filter(Boolean).length;
+  const supplied = [answer.option_index !== undefined, answer.option_indices !== undefined, answer.custom_text !== undefined, answer.cancel !== undefined].filter(Boolean).length;
   if (supplied !== 1) throw new InvalidAnswer("Exactly one answer is required.");
+
+  if (answer.cancel !== undefined) {
+    if (answer.cancel !== true || !parsed.can_cancel) throw new InvalidAnswer("This prompt cannot be cancelled from the card.");
+    return keySteps([KEY.escape]);
+  }
 
   if (answer.custom_text !== undefined) {
     if (typeof answer.custom_text !== "string") throw new InvalidAnswer("Custom text must be a string.");
@@ -1274,7 +1279,8 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
         const parsed = parsedByPublicPrompt.get(target)!;
         const responder = parsed.responder;
         const reader = registry.readerFor(responder);
-        const interaction = reader?.interaction?.(parsed);
+        // a cancel is no pick: the plan is for an option, and the one Esc goes as any other step
+        const interaction = body.cancel === true ? undefined : reader?.interaction?.(parsed);
         // where the moves sent so far leave the cursor (↑ stops at the first row: omoWalk)
         let cursor = parsed.selectedIndex;
         // Claude's unnumbered rows and pi's models are read with no number to aim at: looked at
@@ -1411,7 +1417,7 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
         // An incidental question only unblocks the command; only its named dialog can complete it.
         // The card's Esc row (a cancel or refusal: omp's handoff Cancel, Codex's No) is not a result.
         if (committed && sent?.dialogId === prompt.id && sent.form?.dialog === parsed.responder
-          && body.option_index !== parsed.rejectWithEscapeIndex) noteCommandEvidence(body.pane_id, sent.id, { kind: "dialog", at: Date.now() });
+          && body.cancel !== true && body.option_index !== parsed.rejectWithEscapeIndex) noteCommandEvidence(body.pane_id, sent.id, { kind: "dialog", at: Date.now() });
       } catch (error) {
         if (error instanceof InvalidAnswer) return badRequest("invalid_answer", error.message);
         throw error;

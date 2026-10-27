@@ -1,5 +1,5 @@
 import { useContext, useEffect, useId, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, ChevronUp, FileText, Send } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronUp, FileText, Send, X } from "lucide-react";
 
 import "./PromptCard.css";
 
@@ -174,6 +174,12 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
         {planFile && openFile && (
           <button type="button" className="btn btn-ghost prompt-card-plan-file" onClick={() => openFile(planFile)}>
             <FileText aria-hidden="true" />{t("View plan")}
+          </button>
+        )}
+        {/* the agent's own Esc: its menu closes with nothing picked, without opening the terminal for it */}
+        {prompt.can_cancel && (
+          <button type="button" className="btn btn-ghost prompt-card-cancel" disabled={pending} title={t("Cancel")} onClick={(event) => void answer({ cancel: true }, event)}>
+            <X aria-hidden="true" />{t("Cancel")}
           </button>
         )}
         {/* a typed answer waiting for Confirm keeps the card open, so the fold has nothing to do then */}

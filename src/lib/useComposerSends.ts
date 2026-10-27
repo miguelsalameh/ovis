@@ -53,7 +53,7 @@ export function useComposerSends(deps: ComposerSendsDeps) {
   const { agent, agentStatus, answerPanePrompt, answering, chatNavigation, draftHeldForRef, ended, heldByOpenQueue, heldRef, inputRowNow, knownOutcomes, observeRef, paneId, paneRef, pendingAnswer, pendingScopeRef, queueOwner, queueStore, machineId, secretRef, sessionRef, setChatLocalSend, setPendingAnswer, setPromptRefresh, settings, showSentCommand, socketRef, stillOpenNote, stillOpenNotedRef, stillOpenRef, submitComposerMessage, submitRetention, t } = deps;
 
   /** An answer from the message box, not the card: its failure is the box's note. */
-  const sendAnswer = useCallback((pane: string, prompt: InteractivePrompt, choice: TypedAnswer): Promise<boolean | string> => {
+  const sendAnswer = useCallback((pane: string, prompt: InteractivePrompt, choice: TypedAnswer | { cancel: true }): Promise<boolean | string> => {
     setPendingAnswer(null);
     return answerPanePrompt({ pane_id: pane, prompt_id: prompt.id, ...choice }).then(
       () => { setPromptRefresh((key) => key + 1); return true; },
@@ -77,6 +77,13 @@ export function useComposerSends(deps: ComposerSendsDeps) {
       cancel: (): void => setPendingAnswer(null),
     };
   }, [answering, paneId, pendingAnswer, sendAnswer, setPendingAnswer]);
+
+  /** The card's Cancel as the empty message box's Escape, for a card whose menu Esc closes. null: it cannot. */
+  const cancelPrompt = useMemo(() => {
+    if (paneId === null || answering === null || !answering.can_cancel) return null;
+    const pane = paneId;
+    return (): Promise<boolean | string> => sendAnswer(pane, answering, { cancel: true });
+  }, [answering, paneId, sendAnswer]);
 
   const composerSend = useCallback(
     (text: string, clearDraft?: string, sendAnyway = false): boolean | string | DraftRefusal | Promise<boolean | string | DraftRefusal> => {
@@ -217,5 +224,5 @@ export function useComposerSends(deps: ComposerSendsDeps) {
     else await perform();
   }, [answering, ended, heldByOpenQueue, paneId, queueOwner, submitComposerMessage, submitRetention, showSentCommand, inputRowNow, stillOpenNote]);
 
-  return { composerSend, actOnPending, waitingAnswer };
+  return { composerSend, actOnPending, waitingAnswer, cancelPrompt };
 }

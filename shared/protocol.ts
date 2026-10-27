@@ -645,6 +645,8 @@ export interface InteractivePrompt {
   fallback?: true;
   /** Claude's plan file behind a plan card, whose whole text is then the body: opened in the file viewer */
   plan_file?: string;
+  /** Esc closes the agent's menu with nothing picked: the card offers Cancel (PromptAnswer.cancel) */
+  can_cancel?: true;
 }
 
 export interface InteractivePromptStep {
@@ -676,6 +678,8 @@ export interface PromptAnswer {
   custom_text?: string;
   step_back?: boolean;
   step_index?: number;
+  /** closes the menu with nothing picked (Esc), for a card that says it can (InteractivePrompt.can_cancel) */
+  cancel?: true;
   /** Unsent edits for the current OpenCode step, saved only when navigating back. */
   draft?: { option_indices: number[]; custom_text: string };
 }

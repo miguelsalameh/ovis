@@ -72,8 +72,9 @@
   font-size: var(--fs-xs);
 }
 
-/* "View plan" sits at the header's end, beside the title */
-.prompt-card-plan-file {
+/* "View plan" and Cancel sit at the header's end, beside the title */
+.prompt-card-plan-file,
+.prompt-card-cancel {
   margin-inline-start: auto;
   flex: none;
 }
@@ -94,7 +95,8 @@
   cursor: pointer;
 }
 
-.prompt-card-plan-file + .prompt-card-fold {
+.prompt-card-plan-file + .prompt-card-fold,
+.prompt-card-cancel + .prompt-card-fold {
   margin-inline-start: 0;
 }
 

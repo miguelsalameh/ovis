@@ -3992,7 +3992,7 @@ describe("an answer and the menu it was made for", () => {
     return ((await (await handlePromptRequest(new Request(url), url, { codexHome }))!.json()) as { prompt: InteractivePrompt | null }).prompt;
   }
 
-  async function answer(promptId: string, choice: { option_index?: number; option_indices?: number[]; custom_text?: string }, more: { signal?: AbortSignal; codexHome?: string } = {}): Promise<{ status: number; code?: string }> {
+  async function answer(promptId: string, choice: { option_index?: number; option_indices?: number[]; custom_text?: string; cancel?: true }, more: { signal?: AbortSignal; codexHome?: string } = {}): Promise<{ status: number; code?: string }> {
     const url = new URL("http://127.0.0.1/api/pane/prompt/answer");
     const response = (await handlePromptRequest(new Request(url, { method: "POST", signal: more.signal, body: JSON.stringify({ pane_id: "p_1", prompt_id: promptId, ...choice }) }), url, { codexHome: more.codexHome }))!;
     const body = await response.json() as { error?: { code: string } };
@@ -5239,6 +5239,31 @@ Enter to select · ↑/↓ to navigate · Esc to cancel
       const prompt = (await card())!;
       expect(await answer(prompt.id, { option_index: 0 })).toEqual({ status: 200, code: undefined });
       expect(pane.sent).toEqual(["esc"]);
+    });
+  });
+
+  test("closes Claude's model list with its own Esc from the card's Cancel, and only while the list stands", async () => {
+    await withPane("claude", "idle", claudeModelList(1), async (pane) => {
+      pane.onSent = (sent) => { if (sent === "esc") pane.screen = CLAUDE_MODEL_CLOSED; };
+      const prompt = (await card())!;
+      expect(prompt.can_cancel).toBe(true);
+      expect(await answer(prompt.id, { cancel: true })).toEqual({ status: 200, code: undefined });
+      expect(pane.sent).toEqual(["esc"]);
+      expect(await card()).toBeNull();
+    });
+    // closed in the terminal before the cancel's look: no Esc into Claude's own prompt
+    await withPane("claude", "idle", claudeModelList(1), async (pane) => {
+      const prompt = (await card())!;
+      pane.screen = CLAUDE_MODEL_CLOSED;
+      expect(await answer(prompt.id, { cancel: true })).toEqual({ status: 409, code: "prompt_changed" });
+      expect(pane.sent).toEqual([]);
+    });
+    // a menu that says nothing of Esc offers no Cancel, and takes none
+    await withPane("codex", "blocked", menu(RESUME), async (pane) => {
+      const prompt = (await card())!;
+      expect(prompt.can_cancel).toBeUndefined();
+      expect(await answer(prompt.id, { cancel: true })).toEqual({ status: 400, code: "invalid_answer" });
+      expect(pane.sent).toEqual([]);
     });
   });
 
