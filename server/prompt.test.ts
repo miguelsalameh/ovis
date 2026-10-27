@@ -4479,6 +4479,20 @@ ${heldRule}
     });
   });
 
+  test("comes back from an answer once the menu is gone and herdr no longer reports it blocked", async () => {
+    // the menu closes a moment after its key, and herdr goes on reporting blocked for a while
+    // longer: the screen under it reads as a fallback card, which must not come back as the card
+    await withPane("codex", "blocked", menu(RESUME), async (pane) => {
+      pane.onSent = () => {
+        pane.screen = "Pick a profile:\n1. Work\n2. Home\n\nEnter a number >\n";
+        setTimeout(() => { pane.status = "idle"; }, 300);
+      };
+      const prompt = (await card())!;
+      expect(await answer(prompt.id, { option_index: 0 })).toEqual({ status: 200, code: undefined });
+      expect(await card()).toBeNull();
+    });
+  });
+
   test("answers GJC's unnumbered selector after confirming its moved cursor", async () => {
     await withPane("gjc", "blocked", gjcSelector(), async (pane) => {
       let at = 0;

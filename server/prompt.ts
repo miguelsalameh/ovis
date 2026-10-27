@@ -928,18 +928,19 @@ async function closeOpenQuestion(paneId: string): Promise<void> {
 const SETTLE_MS = 1_500;
 
 /**
- * After an answer to a form of several questions (omo) or to a model list (Claude Code, Codex):
- * back once the pane shows its next step (the next question, the review, a model's levels, or
- * nothing when it was submitted or closed), so the card's read right after the answer gets that
- * step and never the one just answered. A screen that does not move within a second leaves it to
- * the card's next poll.
+ * After an answer: back once the pane shows its next step (a form's next question, the review, a
+ * model's levels, or nothing when the menu was answered or closed), so the card's read right after
+ * the answer gets that step and never the one just answered. herdr goes on reporting blocked a
+ * moment after a menu closes (250-370ms measured under Claude Code), and the screen then reads as a
+ * fallback card: after a menu that was not one, that is waited out too. A screen that does not
+ * move within a second leaves it to the card's next poll.
  */
-async function formMovedOn(paneId: string, answered: string, codexHome?: string, openCodeStateDir?: string): Promise<void> {
+async function formMovedOn(paneId: string, answered: string, fromFallback: boolean, codexHome?: string, openCodeStateDir?: string): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await Bun.sleep(50);
     const prompt = await readPrompt(paneId, codexHome, openCodeStateDir).then((read) => read.prompt, () => null);
     // by what it says: the answer ended that asking, so the same step still on screen has a new id
-    if (contentId(prompt) !== answered) return;
+    if (contentId(prompt) !== answered && (fromFallback || prompt?.fallback !== true)) return;
   }
 }
 
@@ -1025,7 +1026,7 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
     // read, checked and answered in the pane's turn: a message still in flight goes first, and
     // one sent meanwhile waits until the queue is opened, answered and closed again
     const serialize = options.serialize ?? (<T>(_paneId: string, task: () => Promise<T>) => task());
-    const form: { answered?: string } = {};
+    const form: { answered?: string; fallback: boolean } = { fallback: false };
     const log = { paneId: body.pane_id, matched: false };
     answerLog = log;
     const response = await serialize(body.pane_id, async () => {
@@ -1473,15 +1474,18 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
         formsAnswered.set(body.pane_id, Date.now());
         if (formsAnswered.size > 64) formsAnswered.delete(formsAnswered.keys().next().value!);
       }
-      // A model list closes, or opens its next list, a moment after its key: the same wait, so
-      // the card's read right after the answer does not get the list just answered once more
+      // Every menu closes, or opens its next step, a moment after its key (about 100ms for Claude
+      // Code's): the same wait, so the card's read right after the answer does not get the menu
+      // just answered once more under a new asking
       if (target.steps) form.answered = contentId(target);
       else if (responder === "claude-model" || responder === "claude-effort" || responder === "codex-model") form.answered = lastSeen ?? contentId(target);
+      else if (committed) form.answered = contentId(target);
+      form.fallback = target.fallback === true;
       return jsonResponse({ ok: true });
     });
     // the wait for the form's next step only reads the pane: after the pane's turn, so a message
     // queued for it meanwhile is not held up behind the polls
-    if (form.answered !== undefined) await formMovedOn(body.pane_id, form.answered, options.codexHome, options.openCodeStateDir);
+    if (form.answered !== undefined) await formMovedOn(body.pane_id, form.answered, form.fallback, options.codexHome, options.openCodeStateDir);
     await logAnswer(log, response);
     return response;
   } catch (error) {

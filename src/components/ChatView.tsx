@@ -135,6 +135,9 @@ function dropPendingListScroll(list: LegendListRef | null): void {
 
 const TRANSCRIPT_LINES = 400;
 const PROMPT_POLL_MS = 2000;
+/** After a send, an answer or a status change, when a card comes or goes: the prompt is read this often, for this long. */
+const PROMPT_QUICK_MS = 250;
+const PROMPT_QUICK_FOR_MS = 2500;
 // failed prompt reads in a row before the card says it may be out of date: one is a hiccup
 const PROMPT_STALE_READS = 2;
 /** Scrolling this close to the top asks for the page before it. */
@@ -1208,6 +1211,11 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
   const sentKeyRef = useRef(sentKey);
   sentKeyRef.current = sentKey;
   const [promptPollKey, setPromptPollKey] = useState(0);
+  const promptQuickUntil = useRef(0);
+  const readPromptSoon = useCallback((): void => {
+    promptQuickUntil.current = Date.now() + PROMPT_QUICK_FOR_MS;
+    setPromptPollKey((key) => key + 1);
+  }, []);
   const ownNavigation = useRef(0);
   const navigationRef = navigation ?? ownNavigation;
   /** the reader chose a place: a local send already on its way no longer takes them to the end */
@@ -1351,6 +1359,15 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
     seenStatus.current = { pane: paneId, status: agentStatus };
     if (seen.pane === paneId && statusEdgeRead(seen.status, agentStatus)) setPollKey((key) => key + 1);
   }, [paneId, agentStatus]);
+
+  // a slash command opens its menu, and a pane turns blocked or back, a moment after the send or
+  // the status: the card is read then, not at the next 2s poll
+  const promptEdge = useRef({ pane: paneId, sentKey, agentStatus });
+  useEffect(() => {
+    const seen = promptEdge.current;
+    promptEdge.current = { pane: paneId, sentKey, agentStatus };
+    if (seen.pane === paneId && (seen.sentKey !== sentKey || seen.agentStatus !== agentStatus)) readPromptSoon();
+  }, [paneId, sentKey, agentStatus, readPromptSoon]);
 
   useEffect(() => {
     if (!visible) return;
@@ -1618,7 +1635,7 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
       // keep failing let the card say so (#1335): answering stays safe, the server re-reads first
       // a read the restart cancelled counts for neither side: the new poll's count is its own
       catch { if (!cancelled) { failedPromptReads.current += 1; if (failedPromptReads.current >= PROMPT_STALE_READS) setPromptStale(true); } }
-      finally { if (!cancelled) timer = window.setTimeout(() => void readPrompt(), PROMPT_POLL_MS); }
+      finally { if (!cancelled) timer = window.setTimeout(() => void readPrompt(), Date.now() < promptQuickUntil.current ? PROMPT_QUICK_MS : PROMPT_POLL_MS); }
     };
     void readPrompt();
     return () => { cancelled = true; window.clearTimeout(timer); };
@@ -2190,11 +2207,10 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
       // the card reports only while it is the one shown; still, only its own prompt is cleared
       onPromptAnswered?.(toMessageBox);
       setPrompt((current) => current === prompt ? null : current);
-      // a form of several questions goes on to its next one: read it now, not at the next poll
-      if (prompt.steps) setPromptPollKey((key) => key + 1);
-      // Refresh conversation and input state after an answer.
+      // Refresh conversation and input state after an answer, and read the next card (a form's next
+      // question, or none once the screen has moved on) now and again shortly
       setPollKey((key) => key + 1);
-      setPromptPollKey((key) => key + 1);
+      readPromptSoon();
       onPendingAnswerDone?.(paneId, prompt.id);
     }} />, promptDock)}
   {viewer !== null && <ImageLightbox images={viewer.images} index={viewer.index} onClose={closeViewer} />}
