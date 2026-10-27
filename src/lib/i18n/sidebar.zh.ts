@@ -53,4 +53,7 @@ export const SIDEBAR_ZH: Record<string, string> = {
   "Collapse": "折叠",
   "Expand": "展开",
   "Shell": "Shell",
+  "Inactive": "非活动",
+  "Move to Inactive": "移至非活动",
+  "Make active": "恢复为活动",
 };

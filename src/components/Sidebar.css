@@ -832,3 +832,51 @@ button.sidebar-section-label:focus-visible { outline-offset: calc(var(--ring-off
 .plan-count.is-done svg {
   color: var(--status-done);
 }
+
+/* the Inactive group's caption: folds the put-away workspaces below the rest of the list */
+.sidebar-inactive-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--side-gutter);
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-inactive-toggle:hover,
+.sidebar-inactive-toggle:focus-visible {
+  color: var(--text);
+}
+
+.sidebar-inactive-toggle:disabled {
+  cursor: default;
+}
+
+.sidebar-inactive-toggle svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex: 0 0 auto;
+}
+
+.sidebar-inactive-count {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-list-inactive {
+  opacity: 0.75;
+}
+
+@media (pointer: coarse) {
+  .sidebar-inactive-toggle { min-height: var(--touch-target); }
+}
