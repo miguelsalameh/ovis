@@ -290,7 +290,15 @@
   .agent-item:has(> .agent-row:enabled:active) { background: var(--side-hover); }
 }
 
-/* the agent's project color (lib/projectColors.ts), as its workspace row draws it */
-.agent-item.has-project-color {
-  box-shadow: inset calc(3 * var(--hairline)) 0 0 var(--project-color);
+/* the agent's project color (lib/projectColors.ts), as its project's row draws it */
+.agent-item.has-project-color::before {
+  content: "";
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  left: 0;
+  width: calc(3 * var(--hairline));
+  border-radius: var(--radius-pill);
+  background: var(--project-color);
+  pointer-events: none;
 }
