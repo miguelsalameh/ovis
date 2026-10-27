@@ -267,6 +267,12 @@ const BASE: Record<string, string> = {
   // t3code ports (d)
   "Change PC": "PC 바꾸기",
   "Selected": "선택됨",
+  "Open in a new tab": "새 탭에서 열기",
+  "Changes": "변경 사항",
+  "Close changes": "변경 사항 닫기",
+  "Pick a file to see what changed in it.": "파일을 선택하면 변경된 내용이 표시됩니다.",
+  "Changes beside the pane (⌘-click: in a new tab)": "창 옆에 변경 사항 표시 (⌘-클릭: 새 탭에서)",
+  "Changes in a new tab": "새 탭에서 변경 사항 보기",
 };
 
 /** The parts KO is made of; src/lib/i18n.test.ts fails when a key is in two parts, since a spread keeps only the last. */

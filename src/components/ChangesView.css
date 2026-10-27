@@ -1,0 +1,111 @@
+/* A pane's Changes (ChangesView): the list and the picked file's diff, side by side when the panel or
+   page is wide enough, one at a time when it is not. The list and the diff scroll on their own. */
+.changes-view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+  container: changes / inline-size;
+}
+
+.changes-page {
+  height: 100%;
+}
+
+.changes-title {
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.changes-folder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-regular);
+}
+
+.changes-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.changes-list {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  border-right: var(--hairline) solid var(--border);
+  overflow: hidden;
+}
+
+/* the list fills its column here, not the Files dialog's few rows */
+.changes-list > .repo-changes {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.changes-list .repo-changes-list {
+  flex: 1 1 auto;
+  max-height: none;
+}
+
+.changes-diff {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  container: changes-diff / inline-size;
+}
+
+.changes-diff > .repo-diff-docked {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.changes-empty {
+  margin: auto;
+  padding: var(--space-4);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+@container changes (max-width: 760px) {
+  .changes-body { grid-template-columns: minmax(0, 1fr); }
+  .changes-list { border-right: 0; }
+  .changes-body.is-showing > .changes-list,
+  .changes-body:not(.is-showing) > .changes-diff { display: none; }
+}
+
+/* a diff column a phone's width or less (the panel at its default width): the header the diff viewer
+   has on a phone, the name and Close on the first row and the actions on the second */
+@container changes-diff (max-width: 640px) {
+  .changes-diff .repo-diff-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "title close" "actions actions";
+    row-gap: var(--space-2);
+  }
+  .changes-diff .repo-diff-title { grid-area: title; }
+  .changes-diff .repo-diff-meta {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+  .changes-diff .repo-diff-close {
+    grid-area: close;
+    align-self: start;
+  }
+  .changes-diff .repo-diff-actions {
+    grid-area: actions;
+    justify-content: space-between;
+  }
+}

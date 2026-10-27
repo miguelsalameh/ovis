@@ -271,6 +271,12 @@ const BASE: Record<string, string> = {
   // t3code ports (d)
   "Change PC": "切换电脑",
   "Selected": "已选择",
+  "Open in a new tab": "在新标签页中打开",
+  "Changes": "更改",
+  "Close changes": "关闭更改",
+  "Pick a file to see what changed in it.": "选择一个文件以查看其更改。",
+  "Changes beside the pane (⌘-click: in a new tab)": "在窗格旁显示更改（⌘ 点击：在新标签页中）",
+  "Changes in a new tab": "在新标签页中查看更改",
 };
 
 /** The parts ZH is made of; src/lib/i18n.test.ts fails when a key is in two parts, since a spread keeps only the last. */

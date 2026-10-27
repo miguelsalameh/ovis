@@ -17,6 +17,8 @@ export interface RepoChangesProps {
   /** the pane's folder, read when the pane is gone */
   directory: string;
   onOpenDiff: (comparison: RepoComparison, file: RepoDiffFile) => void;
+  /** the file whose diff is shown beside the list (the Changes panel), marked as the current row */
+  shownPath?: string | null;
 }
 
 type Load = { status: "pending" } | { status: "failed"; error: unknown } | { status: "ready"; listing: RepoDiffFileList };
@@ -40,7 +42,7 @@ const NO_REFS: Refs = { status: "idle" };
  * pane or folder starts the Branch scope over (no base, nothing compared until Compare), and an
  * answer read for a target or comparison no longer shown is dropped.
  */
-export function RepoChanges({ paneId, directory, onOpenDiff }: RepoChangesProps) {
+export function RepoChanges({ paneId, directory, onOpenDiff, shownPath = null }: RepoChangesProps) {
   const t = useT();
   const locale = useLocale();
   const { fetchRepoDiffFiles, fetchRepoDiffRefs } = useMachineApi();
@@ -234,7 +236,7 @@ export function RepoChanges({ paneId, directory, onOpenDiff }: RepoChangesProps)
     // a rename within the folder names only the old file; one from elsewhere says where from
     const sameFolder = file.old_path !== null && file.old_path.slice(0, file.old_path.lastIndexOf("/") + 1) === folder;
     return <li key={file.path}>
-      <button type="button" className="repo-change" style={indent} onClick={() => onOpenDiff(comparison, file)}>
+      <button type="button" className="repo-change" style={indent} aria-current={file.path === shownPath ? "true" : undefined} onClick={() => onOpenDiff(comparison, file)}>
         <span className="repo-change-mark" data-status={file.status} aria-hidden="true">{STATUS_MARK[file.status]}</span>
         <span className="visually-hidden">{word}</span>
         <FileGlyph name={file.path} className="repo-change-glyph" />

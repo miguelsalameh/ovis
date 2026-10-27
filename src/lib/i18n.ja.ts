@@ -269,6 +269,12 @@ const BASE: Record<string, string> = {
   // t3code ports (d)
   "Change PC": "PCを切り替え",
   "Selected": "選択中",
+  "Open in a new tab": "新しいタブで開く",
+  "Changes": "変更",
+  "Close changes": "変更を閉じる",
+  "Pick a file to see what changed in it.": "ファイルを選ぶと変更内容が表示されます。",
+  "Changes beside the pane (⌘-click: in a new tab)": "ペインの横に変更を表示（⌘クリック: 新しいタブで）",
+  "Changes in a new tab": "新しいタブで変更を表示",
 };
 
 /** The parts JA is made of; src/lib/i18n.test.ts fails when a key is in two parts, since a spread keeps only the last. */
