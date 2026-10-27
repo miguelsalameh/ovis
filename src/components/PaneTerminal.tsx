@@ -25,6 +25,7 @@ import { composerLift, greetingMemory, greetingFits, greetingFolder, roomOverCom
 import { DETACHED, usePaneBranch } from "../lib/paneBranch.ts";
 import { answerHint } from "../lib/promptAnswer.ts";
 import { composerDrafts } from "../lib/composerDraft.ts";
+import { SelectionQuoteButton } from "./SelectionQuoteButton.tsx";
 import { appendQuote, formatChatQuote, formatTerminalQuote } from "../lib/terminalQuote.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { useSessionHistoryOffered } from "../lib/useSessionHistoryOffered.ts";
@@ -1006,13 +1007,16 @@ export function PaneTerminal({
             {t("View only")}
           </div>
         )}
-        {paneId !== null && (chatView ? chatQuotable?.pane === paneId : selectionQuote?.pane === paneId) && (
+        {paneId !== null && chatView && chatQuotable?.pane === paneId && (
+          <SelectionQuoteButton below={coarse} onQuote={() => {
+            if (chatQuotable.pane === paneId && quoteIntoDraft(formatChatQuote(chatQuotable.text))) getSelection()?.removeAllRanges();
+          }} />
+        )}
+        {paneId !== null && !chatView && selectionQuote?.pane === paneId && (
           <button type="button" className="terminal-banner terminal-banner-action terminal-quote"
             onMouseDown={(event) => { event.preventDefault(); }}
             onClick={() => {
-              if (chatView) {
-                if (chatQuotable?.pane === paneId && quoteIntoDraft(formatChatQuote(chatQuotable.text))) getSelection()?.removeAllRanges();
-              } else if (selectionQuote?.pane === paneId && quoteIntoDraft(formatTerminalQuote({ label: title?.trim() || paneId, range: selectionQuote.range, text: selectionQuote.text }))) termRef.current?.clearSelection();
+              if (selectionQuote.pane === paneId && quoteIntoDraft(formatTerminalQuote({ label: title?.trim() || paneId, range: selectionQuote.range, text: selectionQuote.text }))) termRef.current?.clearSelection();
             }}>
             <Quote aria-hidden="true" />{t("Quote in message")}
           </button>

@@ -41,9 +41,25 @@ const selectBetween = (page: Page, index: number, first: string, last: string): 
   return selection.toString();
 }, [index, first, last] as const);
 
+const selectionRect = (page: Page): Promise<{ left: number; right: number; top: number; bottom: number }> => page.evaluate(() => {
+  const { left, right, top, bottom } = getSelection()!.getRangeAt(0).getBoundingClientRect();
+  return { left, right, top, bottom };
+});
+
+/** The button sits over the selection: centred on it, its bottom edge 0 to 16 px above the top (or its top that close under the bottom). */
+const assertFloatsOver = async (page: Page, where: "above" | "below", why: string): Promise<void> => {
+  const box = await page.locator(".selection-quote").boundingBox();
+  assert.ok(box, `${why}: the button has a box`);
+  const rect = await selectionRect(page);
+  const centre = box.x + box.width / 2;
+  assert.ok(centre >= rect.left - 1 && centre <= rect.right + 1, `${why}: centred over the selection: ${centre} in ${rect.left}..${rect.right}`);
+  const gap = where === "above" ? rect.top - (box.y + box.height) : box.y - rect.bottom;
+  assert.ok(gap >= 0 && gap <= 16, `${why}: ${gap}px ${where === "above" ? "above" : "below"} the selection`);
+};
+
 const noQuoteButton = async (page: Page, why: string): Promise<void> => {
   await page.waitForTimeout(400); // fixed wait: a button that would appear has had its renders
-  assert.equal(await page.locator(".terminal-quote").count(), 0, why);
+  assert.equal(await page.locator(".selection-quote").count(), 0, why);
 };
 
 try {
@@ -89,12 +105,12 @@ try {
         // nothing selected, nothing offered
         await noQuoteButton(page, "no selection offers no quote");
 
-        const button = page.locator(".terminal-quote");
+        const button = page.locator(".selection-quote");
 
         // a selection inside an answer row
         const selected = await selectBetween(page, 1, "Three steps:", "A flag on the command line");
         assert.ok(selected.includes("\n") && selected.includes("Read ") && selected.includes("A flag on the command line"), `a selection over several lines: ${JSON.stringify(selected)}`);
-                await button.waitFor({ state: "visible", timeout: 5_000 });
+        await button.waitFor({ state: "visible", timeout: 5_000 });
         const box = await button.boundingBox();
         assert.ok(box, "the quote button has a box");
         const view = page.viewportSize()!;
@@ -105,8 +121,38 @@ try {
           return top !== null && (top === node || node.contains(top));
         });
         assert.ok(hit, "the button is the topmost element at its centre");
+        await assertFloatsOver(page, "above", "desktop");
         if (shot) { mkdirSync(join(shot, ".."), { recursive: true }); await page.screenshot({ path: shot }); }
         console.log(`PASS a selection in an answer row shows a visible, unobscured Quote in message button at ${JSON.stringify(box)}`);
+
+        // the transcript scrolls under the selection: the button follows it
+        const before = await selectionRect(page);
+        const scroller = await page.evaluate(() => {
+          const row = document.querySelectorAll("[data-chat-row]")[1]!;
+          for (let el: HTMLElement | null = row.parentElement; el; el = el.parentElement) {
+            if (el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY)) return { room: el.scrollHeight - el.clientHeight - el.scrollTop, top: el.scrollTop };
+          }
+          return null;
+        });
+        if (scroller && scroller.top >= 1) {
+          await page.evaluate(() => {
+            const row = document.querySelectorAll("[data-chat-row]")[1]!;
+            for (let el: HTMLElement | null = row.parentElement; el; el = el.parentElement) {
+              if (el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY)) { el.scrollTop -= 24; return; }
+            }
+          });
+          await page.waitForFunction((was) => Math.abs(getSelection()!.getRangeAt(0).getBoundingClientRect().top - was) > 4, before.top, { timeout: 5_000 });
+          await page.waitForTimeout(100);
+          await assertFloatsOver(page, "above", "after scrolling");
+          console.log("PASS the button follows the selection after the transcript scrolls");
+        } else console.log(`SKIP follow-on-scroll: the fixture transcript cannot scroll here (${JSON.stringify(scroller)}); following a resize instead`);
+        await page.setViewportSize({ width: 1000, height: 640 });
+        await page.waitForFunction((was) => Math.abs(getSelection()!.getRangeAt(0).getBoundingClientRect().left - was) > 4, before.left, { timeout: 5_000 });
+        await page.waitForTimeout(100);
+        await assertFloatsOver(page, "above", "after a resize");
+        console.log("PASS the button follows the selection after the window resizes");
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.waitForTimeout(100);
 
         // pressing it keeps the selection until the click lands, then drafts the quote
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -183,6 +229,23 @@ try {
 
         assert.deepEqual(errors, []);
       } finally { await desktop.close(); }
+
+      const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "en-US" });
+      try {
+        await phone.addInitScript((paneId) => {
+          localStorage.setItem("ovis:settings", JSON.stringify({ language: "en" }));
+          localStorage.setItem(`ovis:view:${paneId}`, "chat");
+        }, panes.omp);
+        const page = await phone.newPage();
+        await page.goto(url);
+        await page.locator(".terminal-stack.is-chat").waitFor();
+        await page.waitForFunction(() => document.querySelectorAll(".chat-turn").length >= 2, undefined, { timeout: 10_000 });
+        assert.ok(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), "the phone context has a coarse pointer");
+        await selectBetween(page, 1, "Three steps:", "A flag on the command line");
+        await page.locator(".selection-quote").waitFor({ state: "visible", timeout: 5_000 });
+        await assertFloatsOver(page, "below", "phone");
+        console.log("PASS on a coarse pointer the button sits below the selection");
+      } finally { await phone.close(); }
     } finally { await browser.close(); }
   } finally { server.stop(); }
 } finally { rmSync(app, { recursive: true, force: true }); }
