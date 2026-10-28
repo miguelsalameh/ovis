@@ -114,7 +114,6 @@ export const TERMINAL_KO: Record<string, string> = {
   "Tab order did not refresh. Try again.": "탭 순서가 갱신되지 않았습니다. 다시 시도해 주세요.",
   "Jump to bottom": "맨 아래로 이동",
   "Scroll failed: {reason}": "스크롤 실패: {reason}",
-  "Quote in message": "메시지에 인용",
   "Tap Input line to paste.": "붙여넣으려면\u00a0입력창\u00a0키를\u00a0누르세요.",
   "Paste into the input line": "입력창에 붙여넣기",
   "Show keyboard": "키보드 보이기",

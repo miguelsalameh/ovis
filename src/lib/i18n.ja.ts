@@ -38,6 +38,7 @@ const BASE: Record<string, string> = {
   "{current} of {total}": "{total}件中{current}件目",
   "Recent folders": "最近のフォルダー",
   "Dismiss": "閉じる",
+  "Quote in message": "メッセージに引用",
   "Input line": "入力欄",
   // ---- settings ----
   "Settings": "設定",

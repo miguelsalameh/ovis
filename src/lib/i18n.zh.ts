@@ -40,6 +40,7 @@ const BASE: Record<string, string> = {
   "{current} of {total}": "第 {current} 个，共 {total} 个",
   "Recent folders": "最近的文件夹",
   "Dismiss": "关闭",
+  "Quote in message": "引用到消息",
   "Input line": "输入框",
   // ---- settings ----
   "Settings": "设置",
