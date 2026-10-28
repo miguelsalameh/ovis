@@ -114,7 +114,6 @@ export const TERMINAL_JA: Record<string, string> = {
   "Tab order did not refresh. Try again.": "タブの順序が更新されませんでした。もう一度お試しください。",
   "Jump to bottom": "一番下へ移動",
   "Scroll failed: {reason}": "スクロールに失敗しました: {reason}",
-  "Quote in message": "メッセージに引用",
   "Added to the message draft": "メッセージの下書きに追加しました",
   "Too long for the message draft": "メッセージの下書きには長すぎます",
   "Tap Input line to paste.": "貼り付けるには入力欄キーをタップしてください。",

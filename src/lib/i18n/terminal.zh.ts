@@ -114,7 +114,6 @@ export const TERMINAL_ZH: Record<string, string> = {
   "Tab order did not refresh. Try again.": "标签页顺序未更新，请重试。",
   "Jump to bottom": "跳转到底部",
   "Scroll failed: {reason}": "滚动失败：{reason}",
-  "Quote in message": "引用到消息",
   "Added to the message draft": "已添加到消息草稿",
   "Too long for the message draft": "内容过长，无法加入消息草稿",
   "Tap Input line to paste.": "要粘贴，请先点按输入框键。",
