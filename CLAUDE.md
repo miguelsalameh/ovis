@@ -10,7 +10,7 @@ It lives on the `local` branch only.
 - `upstream` is devswha/ovis, the real project. `origin` is miguelsalameh/ovis, the fork. Push to
   `origin` only, over HTTPS (the repo's `gh auth git-credential` helper; SSH has no key). Commit as
   `miguelsalameh@gmail.com`.
-- `local` is the version that runs: an upstream release tag (now v0.4.18) with each feature branch
+- `local` is the version that runs: an upstream release tag (now v0.4.19) with each feature branch
   merged in. The herdr plugin is linked to this checkout and serves `dist/` on `127.0.0.1:7317`.
   The plugin's updater only moves a checkout on `main`, so `local` never updates itself.
 - Each change gets its own branch (`feat/…`, `fix/…`), cut from the tag `local` is on, so it stays
@@ -20,7 +20,7 @@ It lives on the `local` branch only.
 ## Making a change
 
 1. Work in a worktree, never in this checkout:
-   `git worktree add ~/Projects/ovis-wt/<branch with / as -> -b <branch> v0.4.18`
+   `git worktree add ~/Projects/ovis-wt/<branch with / as -> -b <branch> v0.4.19`
    (leave out `-b` and the tag for an existing branch), then
    `ln -s ~/Projects/ovis/node_modules node_modules` inside it.
 2. Check it there: `bun run typecheck`, and component tests one file at a time with
@@ -63,7 +63,7 @@ prints 200.
    `bun run generate:types` or `bun run generate:themes`.
 4. `bun install` (the lockfile may have moved), `bun run typecheck`, `bun run build`.
 5. Restart the server (above), check the 200, and reload the window.
-6. Replace every `v0.4.18` in this file with the new tag, commit, and `git push origin local`.
+6. Replace every `v0.4.19` in this file with the new tag, commit, and `git push origin local`.
 7. A feature branch upstream has merged can go: `git branch -D` it and delete it on `origin`.
    The others keep their old base.
 
